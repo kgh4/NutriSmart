@@ -116,7 +116,7 @@ fun WeeklyPlannerScreen(
                                 )
                             }
                             Button(
-                                onClick = { appViewModel.selectedDayPlan = currentDayPlan },
+                                onClick = { appViewModel.useThisDayPlan(currentDayPlan) },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {

@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import com.example.nutrismart.domain.model.ShoppingItem
 import com.example.nutrismart.presentation.viewmodel.ShoppingListViewModel
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
-import java.util.UUID
 
 @Composable
 fun ShoppingListScreen(
@@ -30,33 +29,11 @@ fun ShoppingListScreen(
     appViewModel: AppViewModel,
     mealPlanId: String
 ) {
-    val plan = appViewModel.selectedDayPlan
     val uiState by viewModel.uiState.collectAsState()
     var newItemName by remember { mutableStateOf("") }
 
-    if (plan != null) {
-        LaunchedEffect(plan) {
-            val ingredients = listOfNotNull(
-                plan.breakfast.recipe,
-                plan.lunch.recipe,
-                plan.dinner.recipe,
-                plan.snack.recipe
-            ).flatMap { it.ingredients.split("\n") }
-                .filter { it.isNotBlank() }
-                .groupingBy { it.trim() }
-                .eachCount()
-
-            val shoppingItems = ingredients.map { (name, count) ->
-                ShoppingItem(
-                    id = UUID.randomUUID().toString(),
-                    name = name,
-                    quantity = if (count > 1) "$count" else "",
-                    checked = false,
-                    category = "Selected Day Plan"
-                )
-            }
-            viewModel.updateItems(shoppingItems)
-        }
+    LaunchedEffect(Unit) {
+        viewModel.loadShoppingList()
     }
 
     Scaffold(
@@ -74,26 +51,30 @@ fun ShoppingListScreen(
                 )
             }
 
-            if (plan == null) {
+            item {
+                AddItemRow(
+                    value = newItemName,
+                    onValueChange = { newItemName = it },
+                    onAddClick = {
+                        if (newItemName.isNotBlank()) {
+                            viewModel.addItem(newItemName)
+                            newItemName = ""
+                        }
+                    }
+                )
+            }
+
+            if (uiState.error != null) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Please select a day plan in Weekly Planner first", color = Color.Gray, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(
+                            text = uiState.error!!,
+                            color = Color.Gray,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
                     }
                 }
             } else {
-                item {
-                    AddItemRow(
-                        value = newItemName,
-                        onValueChange = { newItemName = it },
-                        onAddClick = {
-                            if (newItemName.isNotBlank()) {
-                                viewModel.addItem(newItemName)
-                                newItemName = ""
-                            }
-                        }
-                    )
-                }
-
                 val groupedItems = uiState.items.groupBy { it.category }
                 groupedItems.forEach { (category, items) ->
                     item {

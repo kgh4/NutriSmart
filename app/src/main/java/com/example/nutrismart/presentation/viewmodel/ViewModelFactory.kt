@@ -17,7 +17,12 @@ object ViewModelFactory : ViewModelProvider.Factory {
         return when {
             modelClass.isAssignableFrom(AppViewModel::class.java) -> {
                 if (appViewModel == null) {
-                    appViewModel = AppViewModel()
+                    appViewModel = AppViewModel(
+                        userRepository = container.userRepository,
+                        recipeRepository = container.recipeRepository,
+                        favoriteRepository = container.favoriteRepository,
+                        dayMealPlanRepository = container.dayMealPlanRepository
+                    )
                 }
                 appViewModel as T
             }
@@ -35,14 +40,13 @@ object ViewModelFactory : ViewModelProvider.Factory {
                 weeklyPlannerViewModel as T
             }
             modelClass.isAssignableFrom(DailyIdeasViewModel::class.java) -> {
-                DailyIdeasViewModel(container.generateDailyMealIdeasUseCase) as T
+                DailyIdeasViewModel(container.recipeRepository) as T
             }
             modelClass.isAssignableFrom(LeftoverRecipesViewModel::class.java) -> {
                 LeftoverRecipesViewModel() as T
             }
             modelClass.isAssignableFrom(ShoppingListViewModel::class.java) -> {
-                val planner = weeklyPlannerViewModel ?: throw IllegalStateException("Planner must be initialized first")
-                ShoppingListViewModel(planner) as T
+                ShoppingListViewModel(container.dayMealPlanRepository, container.recipeRepository) as T
             }
             modelClass.isAssignableFrom(RecipeDetailsViewModel::class.java) -> {
                 RecipeDetailsViewModel() as T

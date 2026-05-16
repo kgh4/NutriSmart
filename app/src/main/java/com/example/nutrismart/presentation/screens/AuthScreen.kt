@@ -13,14 +13,25 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.example.nutrismart.presentation.viewmodel.AppViewModel
+
 @Composable
 fun AuthScreen(
+    appViewModel: AppViewModel,
     onLoginSuccess: () -> Unit
 ) {
     var isSignIn by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+
+    val currentUser by appViewModel.currentUser.collectAsState()
+
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            onLoginSuccess()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -78,7 +89,13 @@ fun AuthScreen(
             )
 
             Button(
-                onClick = onLoginSuccess,
+                onClick = {
+                    if (isSignIn) {
+                        appViewModel.signIn(email)
+                    } else {
+                        appViewModel.signUp(name, email, "Balanced")
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

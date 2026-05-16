@@ -14,8 +14,8 @@ class RecipeRepositoryImpl(
         return recipeDao.getAllRecipes().map { it.toDomainModel() }
     }
 
-    override suspend fun getRecipeById(id: Int): Recipe? {
-        return recipeDao.getRecipeById(id)?.toDomainModel()
+    override suspend fun getRecipeById(id: String): Recipe? {
+        return recipeDao.getRecipe(id)?.toDomainModel()
     }
 
     override suspend fun getFavoriteRecipes(): List<Recipe> {
@@ -23,10 +23,10 @@ class RecipeRepositoryImpl(
     }
 
     override suspend fun saveRecipe(recipe: Recipe) {
-        recipeDao.insertOrUpdate(recipe.toEntity())
+        recipeDao.insert(recipe.toEntity())
     }
 
     override suspend fun deleteRecipe(recipe: Recipe) {
-        recipeDao.deleteRecipe(recipe.toEntity())
+        recipeDao.deleteById(recipe.id)
     }
 }

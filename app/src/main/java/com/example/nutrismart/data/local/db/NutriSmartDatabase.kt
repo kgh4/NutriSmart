@@ -9,8 +9,11 @@ import com.example.nutrismart.data.local.entity.*
 
 @Database(
     entities = [
-        UserProfileEntity::class,
+        UserEntity::class,
         RecipeEntity::class,
+        FavoriteEntity::class,
+        MealPlanEntity::class,
+        UserProfileEntity::class,
         WeeklyMealPlanEntity::class,
         ShoppingListEntity::class,
         LeftoverInputEntity::class,
@@ -20,8 +23,11 @@ import com.example.nutrismart.data.local.entity.*
     exportSchema = false
 )
 abstract class NutriSmartDatabase : RoomDatabase() {
-    abstract fun userProfileDao(): UserProfileDao
+    abstract fun userDao(): UserDao
     abstract fun recipeDao(): RecipeDao
+    abstract fun favoriteDao(): FavoriteDao
+    abstract fun mealPlanDao(): MealPlanDao
+    abstract fun userProfileDao(): UserProfileDao
     abstract fun weeklyMealPlanDao(): WeeklyMealPlanDao
     abstract fun shoppingListDao(): ShoppingListDao
     abstract fun leftoverInputDao(): LeftoverInputDao

@@ -7,8 +7,7 @@ class ToggleFavoriteRecipeUseCase(
 ) {
     suspend operator fun invoke(recipeId: String): Result<Unit> {
         return try {
-            val idInt = recipeId.toIntOrNull() ?: return Result.failure(Exception("Invalid ID"))
-            val recipe = recipeRepository.getRecipeById(idInt)
+            val recipe = recipeRepository.getRecipeById(recipeId)
             if (recipe != null) {
                 recipeRepository.saveRecipe(recipe.copy(isFavorite = !recipe.isFavorite))
                 Result.success(Unit)

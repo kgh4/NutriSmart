@@ -5,21 +5,21 @@ import com.example.nutrismart.data.local.entity.RecipeEntity
 
 @Dao
 interface RecipeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(recipe: RecipeEntity): Long
+
+    @Query("SELECT * FROM recipes WHERE id = :id")
+    suspend fun getRecipe(id: String): RecipeEntity?
+
     @Query("SELECT * FROM recipes")
     suspend fun getAllRecipes(): List<RecipeEntity>
 
-    @Query("SELECT * FROM recipes WHERE id = :id")
-    suspend fun getRecipeById(id: Int): RecipeEntity?
-
-    @Query("SELECT * FROM recipes WHERE isFavorite = 1")
+    @Query("SELECT recipes.* FROM recipes INNER JOIN favorites ON recipes.id = favorites.recipeId")
     suspend fun getFavoriteRecipes(): List<RecipeEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(recipe: RecipeEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(recipes: List<RecipeEntity>)
-
     @Delete
-    suspend fun deleteRecipe(recipe: RecipeEntity): Int
+    suspend fun delete(recipe: RecipeEntity): Int
+
+    @Query("DELETE FROM recipes WHERE id = :id")
+    suspend fun deleteById(id: String): Int
 }

@@ -3,7 +3,7 @@ package com.example.nutrismart.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.domain.model.Recipe
-import com.example.nutrismart.domain.usecase.dailyideas.GenerateDailyMealIdeasUseCase
+import com.example.nutrismart.domain.repository.RecipeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,33 +17,48 @@ data class DailyIdeasUiState(
 )
 
 class DailyIdeasViewModel(
-    private val generateDailyMealIdeasUseCase: GenerateDailyMealIdeasUseCase
+    private val recipeRepository: RecipeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DailyIdeasUiState())
     val uiState: StateFlow<DailyIdeasUiState> = _uiState.asStateFlow()
 
-    fun loadIdeas(profileId: String) {
+    private var allRecipes: List<Recipe> = emptyList()
+
+    init {
+        loadAllRecipes()
+    }
+
+    private fun loadAllRecipes() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            
-            val result = generateDailyMealIdeasUseCase(profileId)
-            
-            result.onSuccess { ideas ->
-                _uiState.update { 
-                    it.copy(
-                        ideas = ideas, 
-                        isLoading = false 
-                    ) 
+            try {
+                allRecipes = recipeRepository.getAllRecipes()
+                if (_uiState.value.ideas.isEmpty()) {
+                    generateDailyIdeas()
                 }
-            }.onFailure { exception ->
-                _uiState.update { 
-                    it.copy(
-                        error = exception.message ?: "Failed to load meal ideas", 
-                        isLoading = false 
-                    ) 
-                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to load recipes") }
             }
+        }
+    }
+
+    fun generateDailyIdeas() {
+        if (allRecipes.isEmpty()) return
+        
+        _uiState.update { it.copy(isLoading = true) }
+        
+        // Simple AI Logic: Shuffle and take 5 unique recipes
+        val newIdeas = allRecipes
+            .shuffled()
+            .distinctBy { it.title }
+            .take(5)
+            
+        _uiState.update { 
+            it.copy(
+                ideas = newIdeas,
+                isLoading = false,
+                error = null
+            )
         }
     }
 }

@@ -3,7 +3,8 @@ package com.example.nutrismart.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.domain.model.ShoppingItem
-import com.example.nutrismart.domain.model.Recipe
+import com.example.nutrismart.domain.repository.DayMealPlanRepository
+import com.example.nutrismart.domain.repository.RecipeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,45 +19,50 @@ data class ShoppingListUiState(
 )
 
 class ShoppingListViewModel(
-    private val weeklyPlannerViewModel: WeeklyPlannerViewModel
+    private val dayMealPlanRepository: DayMealPlanRepository,
+    private val recipeRepository: RecipeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ShoppingListUiState())
     val uiState: StateFlow<ShoppingListUiState> = _uiState.asStateFlow()
 
+    /**
+     * Load shopping list by fetching selected plan and its recipes from DB
+     */
     fun loadShoppingList() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             
-            val plan = weeklyPlannerViewModel.getSelectedPlan()
-            
-            if (plan == null) {
-                _uiState.update { 
-                    it.copy(error = "No plan selected. Please go to Weekly Planner and click 'Use This Plan'.", isLoading = false) 
-                }
-                return@launch
-            }
-
             try {
-                val allRecipes = mutableListOf<Recipe>()
-                plan.days.forEach { day ->
-                    day.breakfast.recipe?.let { allRecipes.add(it) }
-                    day.lunch.recipe?.let { allRecipes.add(it) }
-                    day.dinner.recipe?.let { allRecipes.add(it) }
-                    day.snack.recipe?.let { allRecipes.add(it) }
+                // 1. Load active plan (stored with id = 1)
+                val plan = dayMealPlanRepository.getMealPlan(1)
+                
+                if (plan == null) {
+                    _uiState.update { 
+                        it.copy(error = "No plan selected. Go to Weekly Planner and click 'Use This Day Plan'.", isLoading = false) 
+                    }
+                    return@launch
                 }
 
-                val ingredientLines = allRecipes.flatMap { 
-                    it.ingredients.split("\n") 
-                }.filter { it.isNotBlank() }
+                // 2. Resolve recipes from DB
+                val recipeIds = listOf(plan.breakfastId, plan.lunchId, plan.dinnerId, plan.snackId)
+                    .filter { it.isNotBlank() }
+                
+                val recipes = recipeIds.mapNotNull { id ->
+                    recipeRepository.getRecipeById(id)
+                }
 
-                val counts = ingredientLines.groupingBy { it.trim() }.eachCount()
+                // 3. Extract and group ingredients
+                val ingredients = recipes.flatMap { it.ingredients.split("\n") }
+                    .filter { it.isNotBlank() }
+                
+                val grouped = ingredients.groupingBy { it.trim() }.eachCount()
 
-                val shoppingItems = counts.map { (name, count) ->
+                val shoppingItems = grouped.map { (name, count) ->
                     ShoppingItem(
                         id = UUID.randomUUID().toString(),
                         name = name,
-                        quantity = if (count > 1) "$count units" else "1 unit",
+                        quantity = if (count > 1) "$count" else "",
                         checked = false,
                         category = detectCategory(name)
                     )
@@ -83,7 +89,6 @@ class ShoppingListViewModel(
         val newItem = ShoppingItem(
             id = UUID.randomUUID().toString(),
             name = name,
-            quantity = "1 unit",
             checked = false,
             category = detectCategory(name)
         )
@@ -91,20 +96,16 @@ class ShoppingListViewModel(
     }
 
     fun removeItem(itemId: String) {
-        _uiState.update { it.copy(items = it.items.filter { item -> item.id != itemId }) }
-    }
-
-    fun updateItems(newItems: List<ShoppingItem>) {
-        _uiState.update { it.copy(items = newItems) }
+        _uiState.update { it.copy(items = it.items.filter { it.id != itemId }) }
     }
 
     private fun detectCategory(name: String): String {
         val lower = name.lowercase()
         return when {
-            listOf("tomato", "onion", "garlic", "carrot", "broccoli", "spinach", "potato", "pepper", "avocado", "cucumber", "lettuce", "veggie", "vegetable").any { lower.contains(it) } -> "Produce"
-            listOf("chicken", "beef", "pork", "fish", "egg", "tofu", "turkey", "salmon", "tuna", "steak").any { lower.contains(it) } -> "Proteins"
+            listOf("tomato", "onion", "garlic", "carrot", "broccoli", "spinach", "potato", "pepper", "avocado", "cucumber", "lettuce", "veggie").any { lower.contains(it) } -> "Produce"
+            listOf("chicken", "beef", "pork", "fish", "egg", "tofu", "turkey", "salmon", "tuna").any { lower.contains(it) } -> "Proteins"
             listOf("milk", "cheese", "butter", "yogurt", "cream", "feta").any { lower.contains(it) } -> "Dairy"
-            listOf("rice", "pasta", "bread", "flour", "quinoa", "oats", "tortilla", "wrap").any { lower.contains(it) } -> "Grains/Pantry"
+            listOf("rice", "pasta", "bread", "flour", "quinoa", "oats", "tortilla").any { lower.contains(it) } -> "Grains/Pantry"
             else -> "Other"
         }
     }

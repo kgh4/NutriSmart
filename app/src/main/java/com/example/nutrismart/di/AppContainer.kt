@@ -3,6 +3,7 @@ package com.example.nutrismart.di
 import android.content.Context
 import com.example.nutrismart.data.local.db.NutriSmartDatabase
 import com.example.nutrismart.data.local.entity.RecipeEntity
+import com.example.nutrismart.data.mapper.toEntity
 import com.example.nutrismart.data.repository.*
 import com.example.nutrismart.domain.repository.*
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateDailyMealIdeasUseCase
@@ -21,6 +22,11 @@ interface AppContainer {
     val shoppingListRepository: ShoppingListRepository
     val leftoverRepository: LeftoverRepository
     
+    // New repositories for local database
+    val userRepository: UserRepository
+    val favoriteRepository: FavoriteRepository
+    val dayMealPlanRepository: DayMealPlanRepository
+
     val getUserProfileUseCase: GetUserProfileUseCase
     val generateWeeklyMealPlanUseCase: GenerateWeeklyMealPlanUseCase
     val generateDailyMealIdeasUseCase: GenerateDailyMealIdeasUseCase
@@ -54,6 +60,18 @@ class AppDataContainer(private val context: Context) : AppContainer {
         LeftoverRepositoryImpl(database.leftoverInputDao(), database.leftoverRecipeResultDao())
     }
 
+    override val userRepository: UserRepository by lazy {
+        UserRepositoryImpl(database.userDao())
+    }
+
+    override val favoriteRepository: FavoriteRepository by lazy {
+        FavoriteRepositoryImpl(database.favoriteDao())
+    }
+
+    override val dayMealPlanRepository: DayMealPlanRepository by lazy {
+        DayMealPlanRepositoryImpl(database.mealPlanDao())
+    }
+
     override val getUserProfileUseCase: GetUserProfileUseCase by lazy {
         GetUserProfileUseCase(userProfileRepository)
     }
@@ -84,84 +102,11 @@ class AppDataContainer(private val context: Context) : AppContainer {
             val existing = recipeDao.getAllRecipes()
 
             if (existing.isEmpty()) {
-                val recipes = listOf(
-                    RecipeEntity(
-                        id = 1,
-                        title = "Cheese Omelette",
-                        description = "Simple vegetarian breakfast",
-                        ingredients = "2 eggs, Salt, Butter, Cheese",
-                        steps = "Beat eggs\nCook in pan\nAdd cheese\nServe",
-                        mealType = "Breakfast",
-                        dietType = "Vegetarian",
-                        dietCategory = "Vegetarian",
-                        estimatedCost = 2.5,
-                        estimatedCalories = 350,
-                        prepMinutes = 10,
-                        isFavorite = 0,
-                        sourceType = "LOCAL"
-                    ),
-                    RecipeEntity(
-                        id = 2,
-                        title = "Tuna Sandwich",
-                        description = "Quick pescatarian lunch",
-                        ingredients = "Bread, Tuna, Mayonnaise",
-                        steps = "Mix tuna\nFill bread\nServe",
-                        mealType = "Lunch",
-                        dietType = "Pescatarian",
-                        dietCategory = "Pescatarian",
-                        estimatedCost = 3.0,
-                        estimatedCalories = 300,
-                        prepMinutes = 5,
-                        isFavorite = 0,
-                        sourceType = "LOCAL"
-                    ),
-                    RecipeEntity(
-                        id = 3,
-                        title = "Vegan Chickpea Curry",
-                        description = "Healthy vegan dinner",
-                        ingredients = "Chickpeas, Coconut milk, Curry powder, Rice",
-                        steps = "Sauté spices\nAdd chickpeas and milk\nSimmer\nServe with rice",
-                        mealType = "Dinner",
-                        dietType = "Vegan",
-                        dietCategory = "Vegan",
-                        estimatedCost = 4.0,
-                        estimatedCalories = 450,
-                        prepMinutes = 20,
-                        isFavorite = 0,
-                        sourceType = "LOCAL"
-                    ),
-                    RecipeEntity(
-                        id = 4,
-                        title = "Chicken Protein Bowl",
-                        description = "High-protein meal",
-                        ingredients = "Chicken breast, Quinoa, Broccoli",
-                        steps = "Grill chicken\nCook quinoa\nSteam broccoli\nCombine",
-                        mealType = "Lunch",
-                        dietType = "High-Protein",
-                        dietCategory = "High-Protein",
-                        estimatedCost = 5.5,
-                        estimatedCalories = 500,
-                        prepMinutes = 15,
-                        isFavorite = 0,
-                        sourceType = "LOCAL"
-                    ),
-                    RecipeEntity(
-                        id = 5,
-                        title = "Greek Salad",
-                        description = "Fresh mediterranean salad",
-                        ingredients = "Cucumber, Tomato, Feta, Olives",
-                        steps = "Chop veggies\nAdd feta and olives\nDrizzle olive oil",
-                        mealType = "Lunch",
-                        dietType = "Mediterranean",
-                        dietCategory = "Mediterranean",
-                        estimatedCost = 3.5,
-                        estimatedCalories = 250,
-                        prepMinutes = 10,
-                        isFavorite = 0,
-                        sourceType = "LOCAL"
-                    )
-                )
-                recipeDao.insertAll(recipes)
+                val provider = com.example.nutrismart.domain.generator.DietRecipeProvider()
+                val recipes = provider.getRecipes("All")
+                recipes.forEach { recipe ->
+                    recipeDao.insert(recipe.toEntity())
+                }
             }
         }
     }
