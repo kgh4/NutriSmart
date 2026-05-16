@@ -17,41 +17,63 @@ fun NutriSmartNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
+    val appViewModel: AppViewModel = viewModel(factory = ViewModelFactory)
+
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route,
+        startDestination = Screen.Auth.route,
         modifier = modifier
     ) {
+        composable(Screen.Auth.route) {
+            AuthScreen(onLoginSuccess = {
+                navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.Auth.route) { inclusive = true }
+                }
+            })
+        }
+
         composable(Screen.Home.route) {
             HomeScreen(
+                appViewModel = appViewModel,
                 onNavigateToProfile = { navController.navigate(Screen.UserProfile.route) },
                 onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) },
                 onNavigateToDailyIdeas = { navController.navigate(Screen.DailyIdeas.route) },
                 onNavigateToLeftovers = { navController.navigate(Screen.LeftoverRemix.route) },
-                onNavigateToShoppingList = { navController.navigate(Screen.ShoppingList.route) }
-            )
-        }
-
-        composable(Screen.DailyIdeas.route) {
-            val viewModel: DailyIdeasViewModel = viewModel(factory = ViewModelFactory)
-            DailyIdeasScreen(
-                viewModel = viewModel,
-                profileId = "default_user",
+                onNavigateToShoppingList = { navController.navigate(Screen.ShoppingList.route) },
                 onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) }
             )
         }
 
         composable(Screen.UserProfile.route) {
             val viewModel: ProfileViewModel = viewModel(factory = ViewModelFactory)
-            ProfileScreen(viewModel = viewModel)
+            ProfileScreen(
+                viewModel = viewModel,
+                appViewModel = appViewModel,
+                onNavigateToSavedRecipes = { navController.navigate(Screen.SavedRecipes.route) },
+                onLogout = {
+                    navController.navigate(Screen.Auth.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.SavedRecipes.route) {
+            SavedRecipesScreen(
+                appViewModel = appViewModel,
+                onBackClick = { navController.popBackStack() },
+                onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) }
+            )
         }
 
         composable(Screen.MealPlanner.route) {
             val viewModel: WeeklyPlannerViewModel = viewModel(factory = ViewModelFactory)
             WeeklyPlannerScreen(
                 viewModel = viewModel,
+                appViewModel = appViewModel,
                 profileId = "default_user",
-                onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) }
+                onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) },
+                onBackClick = { navController.popBackStack() }
             )
         }
 
@@ -59,13 +81,18 @@ fun NutriSmartNavGraph(
             val viewModel: LeftoverRecipesViewModel = viewModel(factory = ViewModelFactory)
             LeftoverRecipesScreen(
                 viewModel = viewModel,
-                onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) }
+                onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) },
+                onBackClick = { navController.popBackStack() }
             )
         }
 
         composable(Screen.ShoppingList.route) {
             val viewModel: ShoppingListViewModel = viewModel(factory = ViewModelFactory)
-            ShoppingListScreen(viewModel = viewModel, mealPlanId = "active_plan")
+            ShoppingListScreen(
+                viewModel = viewModel,
+                appViewModel = appViewModel,
+                mealPlanId = "active_plan"
+            )
         }
 
         composable(
@@ -76,8 +103,15 @@ fun NutriSmartNavGraph(
             val viewModel: RecipeDetailsViewModel = viewModel(factory = ViewModelFactory)
             RecipeDetailsScreen(
                 viewModel = viewModel,
+                appViewModel = appViewModel,
                 recipeId = recipeId,
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onNavigateToHome = { navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.Home.route) { inclusive = true }
+                } },
+                onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) },
+                onNavigateToShopping = { navController.navigate(Screen.ShoppingList.route) },
+                onNavigateToProfile = { navController.navigate(Screen.UserProfile.route) }
             )
         }
     }

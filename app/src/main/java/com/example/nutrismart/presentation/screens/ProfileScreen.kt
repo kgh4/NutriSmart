@@ -1,152 +1,315 @@
 package com.example.nutrismart.presentation.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.nutrismart.domain.model.UserProfile
+import androidx.compose.ui.unit.sp
 import com.example.nutrismart.presentation.viewmodel.ProfileViewModel
+import com.example.nutrismart.presentation.viewmodel.AppViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    viewModel: ProfileViewModel
+    viewModel: ProfileViewModel,
+    appViewModel: AppViewModel,
+    onNavigateToSavedRecipes: () -> Unit,
+    onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
-
-    var name by remember { mutableStateOf("") }
-    var dietCategory by remember { mutableStateOf("Balanced") }
-    var weeklyBudget by remember { mutableStateOf("") }
-    var availableMinutes by remember { mutableStateOf("") }
-    
-    var isDietDropdownExpanded by remember { mutableStateOf(false) }
-    val dietCategories = listOf(
-        "Vegan", "Vegetarian", "Pescatarian", "Flexitarian", "Keto", 
-        "Low-Carb", "Atkins", "High-Protein", "Low-Fat", "Mediterranean", 
-        "DASH", "Balanced", "Gluten-Free", "Dairy-Free", "Nut-Free", 
-        "Low-Sodium", "Diabetic-Friendly", "Halal", "Kosher", "Weight Loss", 
-        "Weight Gain", "Muscle Gain", "Cutting", "Intermittent Fasting"
-    )
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProfile()
     }
 
-    LaunchedEffect(uiState.profile) {
-        uiState.profile?.let {
-            name = it.name
-            dietCategory = it.dietCategory
-            weeklyBudget = it.weeklyBudget.toString()
-            availableMinutes = it.availableMinutesPerDay.toString()
-        }
+    if (showEditDialog) {
+        EditProfileDialog(
+            currentName = appViewModel.userName,
+            currentEmail = appViewModel.userEmail,
+            onDismiss = { showEditDialog = false },
+            onConfirm = { newName, newEmail ->
+                appViewModel.userName = newName
+                appViewModel.userEmail = newEmail
+                showEditDialog = false
+            }
+        )
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Profile") })
-        }
+        containerColor = Color(0xFFF8F9FA)
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
+        if (uiState.isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF16A34A))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(scrollState)
+            ) {
+                ProfileHeader(
+                    name = appViewModel.userName,
+                    email = appViewModel.userEmail,
+                    onEditClick = { showEditDialog = true }
+                )
+
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                        .verticalScroll(scrollState),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 ) {
-                    uiState.error?.let {
-                        Text(text = it, color = MaterialTheme.colorScheme.error)
-                    }
-
-                    if (uiState.isSaved) {
-                        Text(text = "Profile Saved!", color = MaterialTheme.colorScheme.primary)
-                        LaunchedEffect(Unit) {
-                            kotlinx.coroutines.delay(2000)
-                            viewModel.resetSavedState()
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    ExposedDropdownMenuBox(
-                        expanded = isDietDropdownExpanded,
-                        onExpandedChange = { isDietDropdownExpanded = !isDietDropdownExpanded },
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = (-30).dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        OutlinedTextField(
-                            value = dietCategory,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Diet Category") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDietDropdownExpanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = isDietDropdownExpanded,
-                            onDismissRequest = { isDietDropdownExpanded = false }
-                        ) {
-                            dietCategories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    onClick = {
-                                        dietCategory = category
-                                        isDietDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
+                        StatCard(Modifier.weight(1f), "${appViewModel.savedRecipes.size}", "Recipes Saved", onClick = onNavigateToSavedRecipes)
+                        StatCard(Modifier.weight(1f), "12", "Weeks Planned")
+                        StatCard(Modifier.weight(1f), "45 TND", "Avg. Weekly")
                     }
 
-                    OutlinedTextField(
-                        value = weeklyBudget,
-                        onValueChange = { weeklyBudget = it },
-                        label = { Text("Weekly Budget (TND)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = availableMinutes,
-                        onValueChange = { availableMinutes = it },
-                        label = { Text("Available Minutes Per Day") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Button(
-                        onClick = {
-                            val updatedProfile = UserProfile(
-                                id = uiState.profile?.id ?: "default_user",
-                                name = name,
-                                dietCategory = dietCategory,
-                                dietType = dietCategory, // Keeping dietType for compatibility if needed
-                                weeklyBudget = weeklyBudget.toDoubleOrNull() ?: 0.0,
-                                availableMinutesPerDay = availableMinutes.toIntOrNull() ?: 0
+                    ProfileSectionTitle("Preferences")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column {
+                            ProfileMenuItem(
+                                icon = Icons.Default.Person,
+                                iconColor = Color(0xFF16A34A),
+                                title = "Dietary Restrictions",
+                                subtitle = uiState.profile?.dietCategory ?: "Vegetarian"
                             )
-                            viewModel.saveProfile(updatedProfile)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Save Profile")
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                            ProfileMenuItem(
+                                icon = Icons.Default.Language,
+                                iconColor = Color(0xFF3B82F6),
+                                title = "Cooking Skill Level",
+                                subtitle = uiState.profile?.cookingSkill ?: "Beginner"
+                            )
+                        }
                     }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    ProfileSectionTitle("Budget & Goals")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column {
+                            ProfileMenuItem(
+                                icon = Icons.Default.AccountBalanceWallet,
+                                iconColor = Color(0xFF9B59B6),
+                                title = "Weekly Budget",
+                                subtitle = "50 TND"
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                            ProfileMenuItem(
+                                icon = Icons.Default.Favorite,
+                                iconColor = Color(0xFFEF4444),
+                                title = "Calorie Goal",
+                                subtitle = "2000 cal/day"
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    ProfileSectionTitle("Support")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        ProfileMenuItem(
+                            icon = Icons.Default.Logout,
+                            iconColor = Color(0xFFEF4444),
+                            title = "Log Out",
+                            onClick = onLogout,
+                            showArrow = true
+                        )
+                    }
+
+                    Spacer(Modifier.height(40.dp))
                 }
             }
         }
     }
+}
+
+@Composable
+fun EditProfileDialog(
+    currentName: String,
+    currentEmail: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(currentName) }
+    var email by remember { mutableStateOf(currentEmail) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Profile") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(name, email) }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun ProfileHeader(name: String, email: String, onEditClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(Color(0xFF16A34A))
+            .padding(24.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = email,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 14.sp
+                )
+            }
+
+            IconButton(onClick = onEditClick) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+fun StatCard(modifier: Modifier, value: String, label: String, onClick: () -> Unit = {}) {
+    Card(
+        modifier = modifier
+            .height(80.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1A1C1E))
+            Text(text = label, fontSize = 11.sp, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun ProfileMenuItem(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit = {},
+    showArrow: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(iconColor.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+        }
+
+        Spacer(Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1A1C1E))
+            if (subtitle != null) {
+                Text(text = subtitle, fontSize = 13.sp, color = Color.Gray)
+            }
+        }
+
+        if (showArrow) {
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+fun ProfileSectionTitle(title: String) {
+    Text(
+        text = title,
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF1A1C1E),
+        modifier = Modifier.padding(vertical = 16.dp)
+    )
 }

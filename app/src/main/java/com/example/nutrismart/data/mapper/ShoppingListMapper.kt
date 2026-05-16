@@ -15,10 +15,9 @@ fun ShoppingListEntity.toDomainModel(): ShoppingList {
             ShoppingItem(
                 id = parts[0],
                 name = parts[1],
-                quantity = parts[2].toDouble(),
-                unit = parts[3],
-                checked = parts[4] == "1",
-                category = parts[5]
+                quantity = parts[2],
+                checked = parts[3] == "1",
+                category = parts[4]
             )
         }
     )
@@ -26,7 +25,7 @@ fun ShoppingListEntity.toDomainModel(): ShoppingList {
 
 fun ShoppingList.toEntity(): ShoppingListEntity {
     val itemsJson = items.joinToString(";") { item ->
-        "${item.id}|${item.name}|${item.quantity}|${item.unit}|${if (item.checked) "1" else "0"}|${item.category}"
+        "${item.id}|${item.name}|${item.quantity}|${if (item.checked) "1" else "0"}|${item.category}"
     }
     return ShoppingListEntity(
         id = id,

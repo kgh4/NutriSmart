@@ -32,43 +32,80 @@ class ShoppingListViewModel(
             
             if (plan == null) {
                 _uiState.update { 
-                    it.copy(error = "No plan selected", isLoading = false, items = emptyList()) 
+                    it.copy(error = "No plan selected. Please go to Weekly Planner and click 'Use This Plan'.", isLoading = false) 
                 }
                 return@launch
             }
 
-            val allRecipes = mutableListOf<Recipe>()
-            plan.days.forEach { day ->
-                day.breakfast.recipe?.let { allRecipes.add(it) }
-                day.lunch.recipe?.let { allRecipes.add(it) }
-                day.dinner.recipe?.let { allRecipes.add(it) }
-                day.snack.recipe?.let { allRecipes.add(it) }
+            try {
+                val allRecipes = mutableListOf<Recipe>()
+                plan.days.forEach { day ->
+                    day.breakfast.recipe?.let { allRecipes.add(it) }
+                    day.lunch.recipe?.let { allRecipes.add(it) }
+                    day.dinner.recipe?.let { allRecipes.add(it) }
+                    day.snack.recipe?.let { allRecipes.add(it) }
+                }
+
+                val ingredientLines = allRecipes.flatMap { 
+                    it.ingredients.split("\n") 
+                }.filter { it.isNotBlank() }
+
+                val counts = ingredientLines.groupingBy { it.trim() }.eachCount()
+
+                val shoppingItems = counts.map { (name, count) ->
+                    ShoppingItem(
+                        id = UUID.randomUUID().toString(),
+                        name = name,
+                        quantity = if (count > 1) "$count units" else "1 unit",
+                        checked = false,
+                        category = detectCategory(name)
+                    )
+                }
+
+                _uiState.update { it.copy(items = shoppingItems, isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
-
-            val ingredients = allRecipes.flatMap { it.ingredients.split("\n") }
-            
-            val grouped = ingredients.filter { it.isNotBlank() }
-                .groupingBy { it.trim() }
-                .eachCount()
-
-            val shoppingItems = grouped.map { (name, count) ->
-                ShoppingItem(
-                    id = UUID.randomUUID().toString(),
-                    name = "$name ($count units)",
-                    checked = false
-                )
-            }
-
-            _uiState.update { it.copy(items = shoppingItems, isLoading = false) }
         }
     }
 
-    fun toggleItem(itemId: String, checked: Boolean) {
+    fun toggleItem(itemId: String) {
         _uiState.update { state ->
             val updatedItems = state.items.map { item ->
-                if (item.id == itemId) item.copy(checked = checked) else item
+                if (item.id == itemId) item.copy(checked = !item.checked) else item
             }
             state.copy(items = updatedItems)
+        }
+    }
+
+    fun addItem(name: String) {
+        if (name.isBlank()) return
+        val newItem = ShoppingItem(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            quantity = "1 unit",
+            checked = false,
+            category = detectCategory(name)
+        )
+        _uiState.update { it.copy(items = listOf(newItem) + it.items) }
+    }
+
+    fun removeItem(itemId: String) {
+        _uiState.update { it.copy(items = it.items.filter { item -> item.id != itemId }) }
+    }
+
+    fun updateItems(newItems: List<ShoppingItem>) {
+        _uiState.update { it.copy(items = newItems) }
+    }
+
+    private fun detectCategory(name: String): String {
+        val lower = name.lowercase()
+        return when {
+            listOf("tomato", "onion", "garlic", "carrot", "broccoli", "spinach", "potato", "pepper", "avocado", "cucumber", "lettuce", "veggie", "vegetable").any { lower.contains(it) } -> "Produce"
+            listOf("chicken", "beef", "pork", "fish", "egg", "tofu", "turkey", "salmon", "tuna", "steak").any { lower.contains(it) } -> "Proteins"
+            listOf("milk", "cheese", "butter", "yogurt", "cream", "feta").any { lower.contains(it) } -> "Dairy"
+            listOf("rice", "pasta", "bread", "flour", "quinoa", "oats", "tortilla", "wrap").any { lower.contains(it) } -> "Grains/Pantry"
+            else -> "Other"
         }
     }
 }

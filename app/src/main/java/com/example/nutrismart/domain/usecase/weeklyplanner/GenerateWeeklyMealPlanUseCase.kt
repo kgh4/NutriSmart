@@ -35,10 +35,10 @@ class GenerateWeeklyMealPlanUseCase(
             )
 
             val days = daysOfWeek.mapIndexed { index, dayName ->
-                val breakfast = recipes[(index * 4) % recipes.size]
-                val lunch = recipes[(index * 4 + 1) % recipes.size]
-                val dinner = recipes[(index * 4 + 2) % recipes.size]
-                val snack = recipes[(index * 4 + 3) % recipes.size]
+                val breakfast = recipes[index % recipes.size]
+                val lunch = recipes[(index + 1) % recipes.size]
+                val dinner = recipes[(index + 2) % recipes.size]
+                val snack = recipes[(index + 3) % recipes.size]
 
                 val selectedRecipes = listOf(breakfast, lunch, dinner, snack)
                 

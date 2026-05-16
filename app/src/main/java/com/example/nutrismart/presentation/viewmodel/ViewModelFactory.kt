@@ -7,6 +7,7 @@ import com.example.nutrismart.NutriSmartApplication
 
 object ViewModelFactory : ViewModelProvider.Factory {
     private var weeklyPlannerViewModel: WeeklyPlannerViewModel? = null
+    private var appViewModel: AppViewModel? = null
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -14,6 +15,12 @@ object ViewModelFactory : ViewModelProvider.Factory {
         val container = application.container
 
         return when {
+            modelClass.isAssignableFrom(AppViewModel::class.java) -> {
+                if (appViewModel == null) {
+                    appViewModel = AppViewModel()
+                }
+                appViewModel as T
+            }
             modelClass.isAssignableFrom(ProfileViewModel::class.java) -> {
                 ProfileViewModel(container.getUserProfileUseCase, container.userProfileRepository) as T
             }
@@ -31,7 +38,7 @@ object ViewModelFactory : ViewModelProvider.Factory {
                 DailyIdeasViewModel(container.generateDailyMealIdeasUseCase) as T
             }
             modelClass.isAssignableFrom(LeftoverRecipesViewModel::class.java) -> {
-                LeftoverRecipesViewModel(container.leftoverRecipeGenerator) as T
+                LeftoverRecipesViewModel() as T
             }
             modelClass.isAssignableFrom(ShoppingListViewModel::class.java) -> {
                 val planner = weeklyPlannerViewModel ?: throw IllegalStateException("Planner must be initialized first")
