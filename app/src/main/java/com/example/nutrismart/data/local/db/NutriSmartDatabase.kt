@@ -19,7 +19,7 @@ import com.example.nutrismart.data.local.entity.*
         LeftoverInputEntity::class,
         LeftoverRecipeResultEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class NutriSmartDatabase : RoomDatabase() {
@@ -43,7 +43,9 @@ abstract class NutriSmartDatabase : RoomDatabase() {
                     context.applicationContext,
                     NutriSmartDatabase::class.java,
                     "nutrismart_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

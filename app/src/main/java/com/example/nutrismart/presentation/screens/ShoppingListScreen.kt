@@ -68,46 +68,57 @@ fun ShoppingListScreen(
                 item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                         Text(
-                            text = uiState.error!!,
-                            color = Color.Gray,
+                            text = uiState.error ?: "An error occurred",
+                            color = Color.Red,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
             } else {
-                val groupedItems = uiState.items.groupBy { it.category }
-                groupedItems.forEach { (category, items) ->
+                val groupedItems = uiState.items.groupBy {
+                    it.category.takeIf { category -> category.isNotBlank() } ?: "Other"
+                }
+
+                if (groupedItems.isEmpty()) {
                     item {
-                        Text(
-                            text = category,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1A1C1E),
-                            modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
-                        )
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("No items added yet", color = Color.Gray)
+                        }
                     }
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column {
-                                items.forEachIndexed { index, item ->
-                                    ShoppingItemRow(
-                                        item = item,
-                                        onToggle = { viewModel.toggleItem(item.id) },
-                                        onDelete = { viewModel.removeItem(item.id) }
-                                    )
-                                    if (index < items.size - 1) {
-                                        HorizontalDivider(
-                                            modifier = Modifier.padding(horizontal = 16.dp),
-                                            thickness = 0.5.dp,
-                                            color = Color.LightGray.copy(alpha = 0.5f)
+                } else {
+                    groupedItems.forEach { (category, items) ->
+                        item {
+                            Text(
+                                text = category,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1A1C1E),
+                                modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+                            )
+                        }
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column {
+                                    items.forEachIndexed { index, item ->
+                                        ShoppingItemRow(
+                                            item = item,
+                                            onToggle = { viewModel.toggleItem(item.id) },
+                                            onDelete = { viewModel.removeItem(item.id) }
                                         )
+                                        if (index < items.size - 1) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.padding(horizontal = 16.dp),
+                                                thickness = 0.5.dp,
+                                                color = Color.LightGray.copy(alpha = 0.5f)
+                                            )
+                                        }
                                     }
                                 }
                             }

@@ -66,10 +66,25 @@ fun RecipeDetailsScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color(0xFF16A34A))
             } else if (uiState.error != null) {
-                Text(text = uiState.error ?: "Error", modifier = Modifier.align(Alignment.Center))
+                Box(modifier = Modifier.align(Alignment.Center).padding(32.dp)) {
+                    Text(
+                        text = uiState.error ?: "An error occurred",
+                        color = Color.Red,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             } else {
-                uiState.recipe?.let { recipe ->
+                val recipe = uiState.recipe
+                if (recipe != null) {
                     RecipeDetailsContent(recipe, appViewModel, onBackClick)
+                } else {
+                    Box(modifier = Modifier.align(Alignment.Center).padding(32.dp)) {
+                        Text(
+                            text = "Recipe not found",
+                            color = Color.Gray,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
         }
