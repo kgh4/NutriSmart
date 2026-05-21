@@ -8,6 +8,7 @@ import java.time.LocalDateTime
 fun ShoppingListEntity.toDomainModel(): ShoppingList {
     return ShoppingList(
         id = id,
+        userId = userId,
         mealPlanId = mealPlanId,
         createdAt = LocalDateTime.parse(createdAt),
         items = if (itemsJson.isEmpty()) emptyList() else itemsJson.split(";").map { itemStr ->
@@ -29,6 +30,7 @@ fun ShoppingList.toEntity(): ShoppingListEntity {
     }
     return ShoppingListEntity(
         id = id,
+        userId = userId,
         mealPlanId = mealPlanId,
         itemsJson = itemsJson,
         createdAt = createdAt.toString()

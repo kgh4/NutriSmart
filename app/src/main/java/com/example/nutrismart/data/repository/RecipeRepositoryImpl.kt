@@ -18,8 +18,8 @@ class RecipeRepositoryImpl(
         return recipeDao.getRecipe(id)?.toDomainModel()
     }
 
-    override suspend fun getFavoriteRecipes(): List<Recipe> {
-        return recipeDao.getFavoriteRecipes().map { it.toDomainModel() }
+    override suspend fun getFavoriteRecipes(userId: String): List<Recipe> {
+        return recipeDao.getFavoriteRecipes(userId).map { it.toDomainModel() }
     }
 
     override suspend fun saveRecipe(recipe: Recipe) {

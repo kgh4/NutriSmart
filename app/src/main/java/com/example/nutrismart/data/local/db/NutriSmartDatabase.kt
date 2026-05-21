@@ -15,11 +15,9 @@ import com.example.nutrismart.data.local.entity.*
         MealPlanEntity::class,
         UserProfileEntity::class,
         WeeklyMealPlanEntity::class,
-        ShoppingListEntity::class,
-        LeftoverInputEntity::class,
-        LeftoverRecipeResultEntity::class
+        ShoppingListEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class NutriSmartDatabase : RoomDatabase() {
@@ -30,8 +28,6 @@ abstract class NutriSmartDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
     abstract fun weeklyMealPlanDao(): WeeklyMealPlanDao
     abstract fun shoppingListDao(): ShoppingListDao
-    abstract fun leftoverInputDao(): LeftoverInputDao
-    abstract fun leftoverRecipeResultDao(): LeftoverRecipeResultDao
 
     companion object {
         @Volatile

@@ -9,9 +9,12 @@ import com.example.nutrismart.domain.repository.*
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateDailyMealIdeasUseCase
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateMoodBasedDailyIdeasUseCase
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateAiDailyIdeasUseCase
-import com.example.nutrismart.domain.service.AiRecipeGenerator
-import com.example.nutrismart.data.ai.GeminiRecipeGenerator
+import com.example.nutrismart.domain.service.IntelligentRecipeService
+import com.example.nutrismart.data.ai.service.RemoteCerebrasRecipeService
+import com.example.nutrismart.data.ai.service.LocalHeuristicRecipeService
+import com.example.nutrismart.data.ai.service.CompositeRecipeService
 import com.example.nutrismart.domain.usecase.profile.GetUserProfileUseCase
+import com.example.nutrismart.BuildConfig
 import com.example.nutrismart.domain.usecase.profile.SaveUserProfileUseCase
 import com.example.nutrismart.domain.usecase.shoppinglist.GenerateShoppingListUseCase
 import com.example.nutrismart.domain.usecase.weeklyplanner.GenerateWeeklyMealPlanUseCase
@@ -25,7 +28,6 @@ interface AppContainer {
     val recipeRepository: RecipeRepository
     val mealPlanRepository: MealPlanRepository
     val shoppingListRepository: ShoppingListRepository
-    val leftoverRepository: LeftoverRepository
     
     // New repositories for local database
     val userRepository: UserRepository
@@ -39,8 +41,7 @@ interface AppContainer {
     val generateMoodBasedDailyIdeasUseCase: GenerateMoodBasedDailyIdeasUseCase
     val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase
     val generateShoppingListUseCase: GenerateShoppingListUseCase
-    val aiRecipeGenerator: AiRecipeGenerator
-    val leftoverRecipeGenerator: LeftoverRecipeGenerator
+    val aiRecipeService: IntelligentRecipeService
 }
 
 class AppDataContainer(private val context: Context) : AppContainer {
@@ -63,10 +64,6 @@ class AppDataContainer(private val context: Context) : AppContainer {
 
     override val shoppingListRepository: ShoppingListRepository by lazy {
         ShoppingListRepositoryImpl(database.shoppingListDao())
-    }
-
-    override val leftoverRepository: LeftoverRepository by lazy {
-        LeftoverRepositoryImpl(database.leftoverInputDao(), database.leftoverRecipeResultDao())
     }
 
     override val userRepository: UserRepository by lazy {
@@ -101,16 +98,22 @@ class AppDataContainer(private val context: Context) : AppContainer {
         GenerateMoodBasedDailyIdeasUseCase(com.example.nutrismart.domain.ai.AIEngine())
     }
 
-    override val aiRecipeGenerator: AiRecipeGenerator by lazy {
-        // In 2026, no API key is passed here.
-        // Vertex AI in Firebase uses the configuration from google-services.json
-        // and is secured via Firebase App Check.
-        GeminiRecipeGenerator()
+    override val aiRecipeService: IntelligentRecipeService by lazy {
+        // Fetch API key from BuildConfig (configured in local.properties)
+        val apiKey = try {
+             BuildConfig.CEREBRAS_API_KEY
+        } catch (e: Exception) {
+            ""
+        }
+        
+        val remote = RemoteCerebrasRecipeService(apiKey = apiKey)
+        val local = LocalHeuristicRecipeService(recipeRepository)
+        CompositeRecipeService(remote, local)
     }
 
     override val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase by lazy {
         GenerateAiDailyIdeasUseCase(
-            aiRecipeGenerator = aiRecipeGenerator,
+            aiRecipeService = aiRecipeService,
             fallbackUseCase = generateMoodBasedDailyIdeasUseCase,
             recipeRepository = recipeRepository
         )
@@ -118,10 +121,6 @@ class AppDataContainer(private val context: Context) : AppContainer {
 
     override val generateShoppingListUseCase: GenerateShoppingListUseCase by lazy {
         GenerateShoppingListUseCase(shoppingListRepository, mealPlanRepository)
-    }
-    
-    override val leftoverRecipeGenerator: LeftoverRecipeGenerator by lazy {
-        LeftoverRecipeGenerator()
     }
 
     init {

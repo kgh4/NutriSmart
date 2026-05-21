@@ -29,80 +29,132 @@ import com.example.nutrismart.presentation.viewmodel.AppViewModel
 fun EnhancedShoppingListScreen(
     viewModel: ShoppingListViewModel,
     appViewModel: AppViewModel,
-    mealPlanId: String
+    mealPlanId: String,
+    onNavigateToPlanner: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedWeeklyPlan = appViewModel.selectedWeeklyPlan
 
     LaunchedEffect(Unit) {
-        viewModel.loadShoppingList()
+        snapshotFlow { appViewModel.selectedWeeklyPlan }
+            .collect { plan ->
+                if (plan != null) {
+                    viewModel.loadShoppingList(plan.id)
+                }
+            }
     }
 
     Scaffold(
         containerColor = Color(0xFFF8F9FA)
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    HeaderSection(
-                        checkedCount = uiState.items.count { it.checked },
-                        totalCount = uiState.items.size
-                    )
-                }
-
-                item {
-                    SearchSection(
-                        query = viewModel.searchQuery,
-                        onQueryChange = { viewModel.onSearchQueryChanged(it) },
-                        searchResults = uiState.searchResults,
-                        onProductSelect = { viewModel.selectProduct(it) }
-                    )
-                }
-
-                if (uiState.selectedProduct != null) {
+        if (selectedWeeklyPlan == null) {
+            NoPlanState(onNavigateToPlanner, padding)
+        } else {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item {
-                        ProductAdjustmentSection(
-                            product = uiState.selectedProduct!!,
-                            weight = viewModel.currentWeight,
-                            onWeightChange = { viewModel.updateWeight(it) },
-                            onAddClick = { viewModel.addSelectedProduct() },
-                            onCancel = { viewModel.selectProduct(uiState.selectedProduct!!) } // Simple way to clear for now or add a clear function
+                        HeaderSection(
+                            checkedCount = uiState.items.count { it.checked },
+                            totalCount = uiState.items.size
                         )
                     }
-                }
 
-                if (uiState.error != null) {
                     item {
-                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text(text = uiState.error ?: "", color = Color.Red)
-                        }
+                        SearchSection(
+                            query = viewModel.searchQuery,
+                            onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                            searchResults = uiState.searchResults,
+                            onProductSelect = { viewModel.selectProduct(it) }
+                        )
                     }
-                } else {
-                    val groupedItems = uiState.items.groupBy { it.category }
-                    groupedItems.forEach { (category, items) ->
+
+                    if (uiState.selectedProduct != null) {
                         item {
-                            Text(
-                                text = category,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        }
-                        items(items) { item ->
-                            ShoppingItemRow(
-                                item = item,
-                                onToggle = { 
-                                    viewModel.toggleItem(item.id) { amount ->
-                                        appViewModel.recordPurchase(amount)
-                                    }
-                                },
-                                onDelete = { viewModel.removeItem(item.id) }
+                            ProductAdjustmentSection(
+                                product = uiState.selectedProduct!!,
+                                weight = viewModel.currentWeight,
+                                onWeightChange = { viewModel.updateWeight(it) },
+                                onAddClick = { viewModel.addSelectedProduct() },
+                                onCancel = { viewModel.selectProduct(uiState.selectedProduct!!) } 
                             )
                         }
                     }
+
+                    if (uiState.error != null) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                                Text(text = uiState.error ?: "", color = Color.Red)
+                            }
+                        }
+                    } else {
+                        val groupedItems = uiState.items.groupBy { it.category }
+                        groupedItems.forEach { (category, items) ->
+                            item {
+                                Text(
+                                    text = category,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                            items(items) { item ->
+                                ShoppingItemRow(
+                                    item = item,
+                                    onToggle = { 
+                                        viewModel.toggleItem(item.id) { amount ->
+                                            appViewModel.recordPurchase(amount)
+                                        }
+                                    },
+                                    onDelete = { viewModel.removeItem(item.id) }
+                                )
+                            }
+                        }
+                    }
+                    
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
-                
-                item { Spacer(Modifier.height(80.dp)) }
             }
+        }
+    }
+}
+
+@Composable
+fun NoPlanState(onNavigateToPlanner: () -> Unit, padding: PaddingValues) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.CalendarToday,
+            contentDescription = null,
+            modifier = Modifier.size(100.dp),
+            tint = Color(0xFF16A34A).copy(alpha = 0.3f)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "No Weekly Plan Selected",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1F2937)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            "Please select a weekly plan in the planner to generate your shopping list.",
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            color = Color(0xFF6B7280)
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = onNavigateToPlanner,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Go to Weekly Planner", modifier = Modifier.padding(8.dp))
         }
     }
 }

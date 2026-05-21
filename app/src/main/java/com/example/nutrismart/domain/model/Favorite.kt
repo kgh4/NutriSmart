@@ -1,6 +1,7 @@
 package com.example.nutrismart.domain.model
 
 data class Favorite(
-    val recipeId: String = ""
+    val recipeId: String = "",
+    val userId: String = ""
 )
 

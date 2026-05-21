@@ -12,6 +12,7 @@ import com.example.nutrismart.domain.model.MoodType
 import com.example.nutrismart.domain.model.DayMealPlan
 import com.example.nutrismart.domain.model.Favorite
 import com.example.nutrismart.domain.model.MealPlan
+import com.example.nutrismart.domain.model.WeeklyMealPlan
 import com.example.nutrismart.domain.model.Recipe
 import com.example.nutrismart.domain.model.User
 import com.example.nutrismart.domain.repository.DayMealPlanRepository
@@ -73,6 +74,8 @@ class AppViewModel(
     val favoriteRecipeIds: StateFlow<Set<String>> = _favoriteRecipeIds.asStateFlow()
 
     // ===== Meal Plan State =====
+    var selectedWeeklyPlan by mutableStateOf<WeeklyMealPlan?>(null)
+
     var selectedDayPlan by mutableStateOf<DayMealPlan?>(null)
         private set
 
@@ -105,10 +108,14 @@ class AppViewModel(
                 isLoading = true
                 Log.d(TAG, "Starting initial data load...")
 
-                // Load sequentially to ensure data integrity
-                loadUser()
+                // Load recipes first as they are static-ish
                 loadRecipes()
-                loadFavorites()
+                
+                // Then load user and their specific data
+                loadUser()
+                if (_currentUser.value != null) {
+                    loadFavorites()
+                }
 
                 Log.d(TAG, "Initial data load completed successfully")
             } catch (e: Exception) {
@@ -172,7 +179,7 @@ class AppViewModel(
     /**
      * Safe sign up with validation
      */
-    fun signUp(name: String, email: String, diet: String) {
+    fun signUp(name: String, email: String, diet: String, password: String = "") {
         viewModelScope.launch {
             try {
                 // Validate inputs
@@ -190,6 +197,7 @@ class AppViewModel(
                     id = java.util.UUID.randomUUID().toString(),
                     name = safeName,
                     email = safeEmail,
+                    password = password,
                     dietCategory = safeDiet
                 )
 
@@ -205,7 +213,7 @@ class AppViewModel(
     /**
      * Safe sign in with email validation
      */
-    fun signIn(email: String) {
+    fun signIn(email: String, password: String = "") {
         viewModelScope.launch {
             try {
                 val safeEmail = email.takeIf { it.isNotBlank() } ?: run {
@@ -213,7 +221,7 @@ class AppViewModel(
                     return@launch
                 }
 
-                val user = userRepository.getUserByEmail(safeEmail)
+                val user = userRepository.signIn(safeEmail, password)
                 if (user != null) {
                     _currentUser.value = user
                     userName = user.name.takeIf { it.isNotBlank() } ?: DEFAULT_USER_NAME
@@ -221,8 +229,8 @@ class AppViewModel(
                     clearError()
                     Log.d(TAG, "Sign in successful")
                 } else {
-                    setError("User not found")
-                    Log.w(TAG, "User not found with email: $safeEmail")
+                    setError("Invalid email or password")
+                    Log.w(TAG, "Sign in failed for: $safeEmail")
                 }
             } catch (e: Exception) {
                 handleError("Sign in failed", e)
@@ -239,6 +247,9 @@ class AppViewModel(
                 _currentUser.value = null
                 setDefaultUser()
                 selectedDayPlan = null
+                selectedWeeklyPlan = null
+                savedRecipes.clear()
+                _favoriteRecipeIds.value = emptySet()
                 Log.d(TAG, "User signed out successfully")
             } catch (e: Exception) {
                 handleError("Error during sign out", e)
@@ -290,6 +301,14 @@ class AppViewModel(
     }
 
     /**
+     * Select a weekly plan to be used for shopping list generation
+     */
+    fun selectWeeklyPlan(plan: WeeklyMealPlan) {
+        selectedWeeklyPlan = plan
+        Log.d(TAG, "Weekly plan selected: ${plan.id}")
+    }
+
+    /**
      * Safe day plan selection and saving
      */
     fun useThisDayPlan(plan: DayMealPlan) {
@@ -322,7 +341,10 @@ class AppViewModel(
     fun loadFavorites() {
         viewModelScope.launch {
             try {
-                val favorites = recipeRepository.getFavoriteRecipes() ?: emptyList()
+                val userId = _currentUser.value?.id ?: ""
+                if (userId.isBlank()) return@launch
+
+                val favorites = recipeRepository.getFavoriteRecipes(userId) ?: emptyList()
 
                 savedRecipes.clear()
                 savedRecipes.addAll(favorites.filterNotNull())
@@ -347,8 +369,9 @@ class AppViewModel(
     fun toggleFavorite(recipe: Recipe) {
         viewModelScope.launch {
             try {
-                if (recipe.id.isBlank()) {
-                    setError("Invalid recipe ID")
+                val userId = _currentUser.value?.id ?: ""
+                if (recipe.id.isBlank() || userId.isBlank()) {
+                    setError("Invalid recipe ID or User not logged in")
                     return@launch
                 }
 
@@ -356,13 +379,13 @@ class AppViewModel(
 
                 if (isCurrentlyFavorite) {
                     // Remove from database
-                    favoriteRepository.deleteFavorite(recipe.id)
+                    favoriteRepository.deleteFavorite(recipe.id, userId)
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value - recipe.id
                     savedRecipes.removeAll { it.id == recipe.id }
                     Log.d(TAG, "Recipe removed from favorites: ${recipe.title}")
                 } else {
                     // Save to database
-                    favoriteRepository.saveFavorite(Favorite(recipeId = recipe.id))
+                    favoriteRepository.saveFavorite(Favorite(recipeId = recipe.id, userId = userId))
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value + recipe.id
                     if (savedRecipes.none { it.id == recipe.id }) {
                         savedRecipes.add(recipe)

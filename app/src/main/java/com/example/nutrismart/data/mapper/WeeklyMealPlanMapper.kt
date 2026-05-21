@@ -9,7 +9,7 @@ import java.time.LocalDate
 fun WeeklyMealPlanEntity.toDomainModel(): WeeklyMealPlan {
     return WeeklyMealPlan(
         id = id,
-        profileId = profileId,
+        profileId = userId,
         weekStartDate = LocalDate.parse(weekStartDate),
         totalCost = totalCost,
         days = if (daysJson.isEmpty()) emptyList() else daysJson.split(";").map { dayStr ->
@@ -33,7 +33,7 @@ fun WeeklyMealPlan.toEntity(): WeeklyMealPlanEntity {
     }
     return WeeklyMealPlanEntity(
         id = id,
-        profileId = profileId,
+        userId = profileId,
         weekStartDate = weekStartDate.toString(),
         daysJson = daysJson,
         totalCost = totalCost

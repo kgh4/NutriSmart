@@ -8,16 +8,16 @@ interface FavoriteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(favorite: FavoriteEntity): Long
 
-    @Query("SELECT * FROM favorites WHERE recipeId = :recipeId")
-    suspend fun getFavorite(recipeId: String): FavoriteEntity?
+    @Query("SELECT * FROM favorites WHERE recipeId = :recipeId AND userId = :userId")
+    suspend fun getFavorite(recipeId: String, userId: String): FavoriteEntity?
 
-    @Query("SELECT * FROM favorites")
-    suspend fun getAllFavorites(): List<FavoriteEntity>
+    @Query("SELECT * FROM favorites WHERE userId = :userId")
+    suspend fun getAllFavorites(userId: String): List<FavoriteEntity>
 
     @Delete
     suspend fun delete(favorite: FavoriteEntity): Int
 
-    @Query("DELETE FROM favorites WHERE recipeId = :recipeId")
-    suspend fun deleteById(recipeId: String): Int
+    @Query("DELETE FROM favorites WHERE recipeId = :recipeId AND userId = :userId")
+    suspend fun deleteById(recipeId: String, userId: String): Int
 }
 

@@ -280,7 +280,10 @@ class SafeAppViewModel(
     fun loadFavorites() {
         viewModelScope.launch {
             try {
-                val favorites = recipeRepository.getFavoriteRecipes() ?: emptyList()
+                val userId = _currentUser.value?.id ?: ""
+                if (userId.isBlank()) return@launch
+
+                val favorites = recipeRepository.getFavoriteRecipes(userId) ?: emptyList()
 
                 savedRecipes.clear()
                 savedRecipes.addAll(favorites.filterNotNull())
@@ -305,8 +308,9 @@ class SafeAppViewModel(
     fun toggleFavorite(recipe: Recipe) {
         viewModelScope.launch {
             try {
-                if (recipe.id.isBlank()) {
-                    setError("Invalid recipe ID")
+                val userId = _currentUser.value?.id ?: ""
+                if (recipe.id.isBlank() || userId.isBlank()) {
+                    setError("Invalid recipe ID or User not logged in")
                     return@launch
                 }
 
@@ -314,13 +318,13 @@ class SafeAppViewModel(
 
                 if (isCurrentlyFavorite) {
                     // Remove from database
-                    favoriteRepository.deleteFavorite(recipe.id)
+                    favoriteRepository.deleteFavorite(recipe.id, userId)
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value - recipe.id
                     savedRecipes.removeAll { it.id == recipe.id }
                     Log.d(TAG, "Recipe removed from favorites: ${recipe.title}")
                 } else {
                     // Save to database
-                    favoriteRepository.saveFavorite(Favorite(recipeId = recipe.id))
+                    favoriteRepository.saveFavorite(Favorite(recipeId = recipe.id, userId = userId))
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value + recipe.id
                     if (savedRecipes.none { it.id == recipe.id }) {
                         savedRecipes.add(recipe)

@@ -14,8 +14,8 @@ interface RecipeDao {
     @Query("SELECT * FROM recipes")
     suspend fun getAllRecipes(): List<RecipeEntity>
 
-    @Query("SELECT recipes.* FROM recipes INNER JOIN favorites ON recipes.id = favorites.recipeId")
-    suspend fun getFavoriteRecipes(): List<RecipeEntity>
+    @Query("SELECT recipes.* FROM recipes INNER JOIN favorites ON recipes.id = favorites.recipeId WHERE favorites.userId = :userId")
+    suspend fun getFavoriteRecipes(userId: String): List<RecipeEntity>
 
     @Delete
     suspend fun delete(recipe: RecipeEntity): Int

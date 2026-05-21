@@ -6,9 +6,9 @@ import com.example.nutrismart.domain.repository.RecipeRepository
 class GetFavoriteRecipesUseCase(
     private val recipeRepository: RecipeRepository
 ) {
-    suspend operator fun invoke(): Result<List<Recipe>> {
+    suspend operator fun invoke(userId: String): Result<List<Recipe>> {
         return try {
-            val favorites = recipeRepository.getFavoriteRecipes()
+            val favorites = recipeRepository.getFavoriteRecipes(userId)
             Result.success(favorites.sortedBy { it.mealType })
         } catch (e: Exception) {
             Result.failure(e)

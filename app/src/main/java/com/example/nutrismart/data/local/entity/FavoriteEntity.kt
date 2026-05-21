@@ -3,9 +3,9 @@ package com.example.nutrismart.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "favorites")
+@Entity(tableName = "favorites", primaryKeys = ["recipeId", "userId"])
 data class FavoriteEntity(
-    @PrimaryKey
-    val recipeId: String
+    val recipeId: String,
+    val userId: String = ""
 )
 

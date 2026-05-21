@@ -7,8 +7,10 @@ fun RecipeEntity.toDomainModel(): Recipe {
     return Recipe(
         id = id,
         title = title,
+        description = description,
         ingredients = ingredients,
         steps = steps,
+        mealType = mealType,
         time = time,
         calories = calories,
         budget = budget,
@@ -20,8 +22,10 @@ fun Recipe.toEntity(): RecipeEntity {
     return RecipeEntity(
         id = id,
         title = title,
+        description = description,
         ingredients = ingredients,
         steps = steps,
+        mealType = mealType,
         calories = calories,
         time = time,
         budget = budget,
