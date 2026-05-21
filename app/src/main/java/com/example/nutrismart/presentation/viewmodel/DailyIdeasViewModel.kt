@@ -2,8 +2,11 @@ package com.example.nutrismart.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.nutrismart.domain.model.Recipe
+import com.example.nutrismart.domain.model.DailyIdea
+import com.example.nutrismart.domain.model.MoodType
+import com.example.nutrismart.domain.model.User
 import com.example.nutrismart.domain.repository.RecipeRepository
+import com.example.nutrismart.domain.usecase.dailyideas.GenerateAiDailyIdeasUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,53 +15,27 @@ import kotlinx.coroutines.launch
 
 data class DailyIdeasUiState(
     val isLoading: Boolean = false,
-    val ideas: List<Recipe> = emptyList(),
+    val ideas: List<DailyIdea> = emptyList(),
     val error: String? = null
 )
 
 class DailyIdeasViewModel(
-    private val recipeRepository: RecipeRepository
+    private val recipeRepository: RecipeRepository,
+    private val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DailyIdeasUiState())
     val uiState: StateFlow<DailyIdeasUiState> = _uiState.asStateFlow()
 
-    private var allRecipes: List<Recipe> = emptyList()
-
-    init {
-        loadAllRecipes()
-    }
-
-    private fun loadAllRecipes() {
+    fun generateDailyIdeas(mood: MoodType, user: User?) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                allRecipes = recipeRepository.getAllRecipes()
-                if (_uiState.value.ideas.isEmpty()) {
-                    generateDailyIdeas()
-                }
+                val moodIdeas = generateAiDailyIdeasUseCase(mood, user)
+                _uiState.update { it.copy(ideas = moodIdeas, isLoading = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Failed to load recipes") }
+                _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
-        }
-    }
-
-    fun generateDailyIdeas() {
-        if (allRecipes.isEmpty()) return
-        
-        _uiState.update { it.copy(isLoading = true) }
-        
-        // Simple AI Logic: Shuffle and take 5 unique recipes
-        val newIdeas = allRecipes
-            .shuffled()
-            .distinctBy { it.title }
-            .take(5)
-            
-        _uiState.update { 
-            it.copy(
-                ideas = newIdeas,
-                isLoading = false,
-                error = null
-            )
         }
     }
 }

@@ -8,6 +8,7 @@ import com.example.nutrismart.NutriSmartApplication
 object ViewModelFactory : ViewModelProvider.Factory {
     private var weeklyPlannerViewModel: WeeklyPlannerViewModel? = null
     private var appViewModel: AppViewModel? = null
+    private var onboardingViewModel: OnboardingViewModel? = null
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -39,8 +40,14 @@ object ViewModelFactory : ViewModelProvider.Factory {
                 }
                 weeklyPlannerViewModel as T
             }
+            modelClass.isAssignableFrom(OnboardingViewModel::class.java) -> {
+                if (onboardingViewModel == null) {
+                    onboardingViewModel = OnboardingViewModel(container.saveUserProfileUseCase)
+                }
+                onboardingViewModel as T
+            }
             modelClass.isAssignableFrom(DailyIdeasViewModel::class.java) -> {
-                DailyIdeasViewModel(container.recipeRepository) as T
+                DailyIdeasViewModel(container.recipeRepository, container.generateAiDailyIdeasUseCase) as T
             }
             modelClass.isAssignableFrom(LeftoverRecipesViewModel::class.java) -> {
                 LeftoverRecipesViewModel() as T

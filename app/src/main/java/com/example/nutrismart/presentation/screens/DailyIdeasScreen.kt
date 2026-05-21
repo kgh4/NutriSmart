@@ -1,5 +1,6 @@
 package com.example.nutrismart.presentation.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,12 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -26,8 +25,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nutrismart.domain.model.Recipe
+import com.example.nutrismart.domain.model.DailyIdea
 import com.example.nutrismart.presentation.home.BottomNavigationBar
+import com.example.nutrismart.presentation.viewmodel.AppViewModel
 import com.example.nutrismart.presentation.viewmodel.DailyIdeasViewModel
 import com.example.nutrismart.util.RecipeImageMapper
 
@@ -35,6 +35,7 @@ import com.example.nutrismart.util.RecipeImageMapper
 @Composable
 fun DailyIdeasScreen(
     viewModel: DailyIdeasViewModel,
+    appViewModel: AppViewModel,
     onRecipeClick: (String) -> Unit,
     onBackClick: () -> Unit,
     onNavigateToHome: () -> Unit,
@@ -43,11 +44,22 @@ fun DailyIdeasScreen(
     onNavigateToProfile: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedMood = appViewModel.selectedMood
+    val currentUser by appViewModel.currentUser.collectAsState()
+
+    LaunchedEffect(selectedMood, currentUser) {
+        viewModel.generateDailyIdeas(selectedMood, currentUser)
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Daily Ideas", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${selectedMood.emoji} ", fontSize = 24.sp)
+                        Text("${selectedMood.displayName} Ideas", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -74,13 +86,13 @@ fun DailyIdeasScreen(
         ) {
             // 1. ORANGE HEADER CARD
             item {
-                HeaderCard()
+                HeaderCard(selectedMood.emoji, selectedMood.displayName)
             }
 
             // 2. GET NEW IDEAS BUTTON
             item {
                 OutlinedButton(
-                    onClick = { viewModel.generateDailyIdeas() },
+                    onClick = { viewModel.generateDailyIdeas(selectedMood, currentUser) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF16A34A)),
@@ -88,7 +100,7 @@ fun DailyIdeasScreen(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Get New Ideas", fontWeight = FontWeight.Bold)
+                    Text("Refresh ${selectedMood.emoji} Ideas", fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -96,12 +108,35 @@ fun DailyIdeasScreen(
             if (uiState.isLoading) {
                 item {
                     Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF16A34A))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color(0xFF16A34A))
+                            Spacer(Modifier.height(8.dp))
+                            Text("Gemini is cooking up ideas...", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    }
+                }
+            } else if (uiState.error != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2))
+                    ) {
+                        Text(
+                            text = "Error: ${uiState.error}",
+                            modifier = Modifier.padding(16.dp),
+                            color = Color(0xFFB91C1C)
+                        )
                     }
                 }
             } else {
-                items(uiState.ideas) { recipe ->
-                    RecipeCard(recipe = recipe, onClick = { onRecipeClick(recipe.id) })
+                items(uiState.ideas) { dailyIdea ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        RecipeCard(dailyIdea = dailyIdea, onClick = { onRecipeClick(dailyIdea.recipe.id) })
+                    }
                 }
             }
 
@@ -113,7 +148,7 @@ fun DailyIdeasScreen(
 }
 
 @Composable
-fun HeaderCard() {
+fun HeaderCard(emoji: String, moodName: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -123,20 +158,20 @@ fun HeaderCard() {
             modifier = Modifier.padding(24.dp)
         ) {
             Text(
-                text = "Today's Suggestions",
+                text = "$emoji $moodName Mode",
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Tuesday, April 14",
+                text = "Perfect meals for you!",
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Fresh meal ideas just for you!",
+                text = "AI-curated based on how you feel.",
                 color = Color.White.copy(alpha = 0.8f),
                 fontSize = 14.sp
             )
@@ -145,7 +180,8 @@ fun HeaderCard() {
 }
 
 @Composable
-fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
+fun RecipeCard(dailyIdea: DailyIdea, onClick: () -> Unit) {
+    val recipe = dailyIdea.recipe
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -172,7 +208,7 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = recipe.title,
+                        text = dailyIdea.moodTitle,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1A1C1E)

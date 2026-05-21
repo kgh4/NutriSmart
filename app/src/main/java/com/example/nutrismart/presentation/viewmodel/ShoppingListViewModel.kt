@@ -1,7 +1,12 @@
 package com.example.nutrismart.presentation.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.nutrismart.data.datasource.TunisianProductDataSource
+import com.example.nutrismart.domain.model.Product
 import com.example.nutrismart.domain.model.ShoppingItem
 import com.example.nutrismart.domain.repository.DayMealPlanRepository
 import com.example.nutrismart.domain.repository.RecipeRepository
@@ -15,7 +20,9 @@ import java.util.UUID
 data class ShoppingListUiState(
     val isLoading: Boolean = false,
     val items: List<ShoppingItem> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val searchResults: List<Product> = emptyList(),
+    val selectedProduct: Product? = null
 )
 
 class ShoppingListViewModel(
@@ -26,6 +33,12 @@ class ShoppingListViewModel(
     private val _uiState = MutableStateFlow(ShoppingListUiState())
     val uiState: StateFlow<ShoppingListUiState> = _uiState.asStateFlow()
 
+    var searchQuery by mutableStateOf("")
+        private set
+
+    var currentWeight by mutableStateOf(1.0)
+        private set
+
     /**
      * Load shopping list by fetching selected plan and its recipes from DB
      */
@@ -34,7 +47,6 @@ class ShoppingListViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             
             try {
-                // 1. Load active plan (stored with id = 1)
                 val plan = dayMealPlanRepository.getMealPlan(1)
                 
                 if (plan == null) {
@@ -44,7 +56,6 @@ class ShoppingListViewModel(
                     return@launch
                 }
 
-                // 2. Resolve recipes from DB
                 val recipeIds = listOf(plan.breakfastId, plan.lunchId, plan.dinnerId, plan.snackId)
                     .filter { it.isNotBlank() }
                 
@@ -52,7 +63,6 @@ class ShoppingListViewModel(
                     recipeRepository.getRecipeById(id)
                 }
 
-                // 3. Extract and group ingredients
                 val ingredients = recipes.flatMap { it.ingredients.split("\n") }
                     .filter { it.isNotBlank() }
                 
@@ -75,24 +85,55 @@ class ShoppingListViewModel(
         }
     }
 
-    fun toggleItem(itemId: String) {
-        _uiState.update { state ->
-            val updatedItems = state.items.map { item ->
-                if (item.id == itemId) item.copy(checked = !item.checked) else item
+    fun onSearchQueryChanged(query: String) {
+        searchQuery = query
+        if (query.length >= 2) {
+            val results = TunisianProductDataSource.products.filter { 
+                it.name.contains(query, ignoreCase = true) 
             }
-            state.copy(items = updatedItems)
+            _uiState.update { it.copy(searchResults = results) }
+        } else {
+            _uiState.update { it.copy(searchResults = emptyList()) }
         }
     }
 
-    fun addItem(name: String) {
-        if (name.isBlank()) return
+    fun selectProduct(product: Product) {
+        _uiState.update { it.copy(selectedProduct = product, searchResults = emptyList()) }
+        searchQuery = ""
+        currentWeight = 1.0
+    }
+
+    fun updateWeight(weight: Double) {
+        currentWeight = weight
+    }
+
+    fun addSelectedProduct() {
+        val product = uiState.value.selectedProduct ?: return
+        val finalPrice = product.pricePerUnit * currentWeight
         val newItem = ShoppingItem(
             id = UUID.randomUUID().toString(),
-            name = name,
+            name = product.name,
+            quantity = "${String.format("%.1f", currentWeight)}${product.unit}",
+            price = finalPrice,
             checked = false,
-            category = detectCategory(name)
+            category = product.category
         )
-        _uiState.update { it.copy(items = listOf(newItem) + it.items) }
+        _uiState.update { it.copy(items = listOf(newItem) + it.items, selectedProduct = null) }
+    }
+
+    fun toggleItem(itemId: String, onPurchaseConfirmed: (Double) -> Unit = {}) {
+        _uiState.update { state ->
+            val updatedItems = state.items.map { item ->
+                if (item.id == itemId) {
+                    val newChecked = !item.checked
+                    if (newChecked && item.price > 0) {
+                        onPurchaseConfirmed(item.price)
+                    }
+                    item.copy(checked = newChecked)
+                } else item
+            }
+            state.copy(items = updatedItems)
+        }
     }
 
     fun removeItem(itemId: String) {

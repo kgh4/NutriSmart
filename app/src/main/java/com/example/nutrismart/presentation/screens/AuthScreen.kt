@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
 
 @Composable
-fun AuthScreen(
+fun EnhancedAuthScreen(
     appViewModel: AppViewModel,
     onLoginSuccess: () -> Unit
 ) {

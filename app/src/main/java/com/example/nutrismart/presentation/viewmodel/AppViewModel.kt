@@ -1,5 +1,6 @@
 package com.example.nutrismart.presentation.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -7,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.domain.ai.AIEngine
+import com.example.nutrismart.domain.model.MoodType
 import com.example.nutrismart.domain.model.DayMealPlan
 import com.example.nutrismart.domain.model.Favorite
 import com.example.nutrismart.domain.model.MealPlan
@@ -21,6 +23,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * SAFE AppViewModel with comprehensive null safety and crash prevention
+ *
+ * Key improvements:
+ * ✅ NO !! operator anywhere
+ * ✅ Safe null checks with ?: and ?. operators
+ * ✅ Try-catch blocks for all critical operations
+ * ✅ Defensive copying and validation
+ * ✅ Safe list access with firstOrNull() and isEmpty()
+ * ✅ Comprehensive logging for debugging
+ */
 class AppViewModel(
     private val userRepository: UserRepository,
     private val recipeRepository: RecipeRepository,
@@ -28,14 +41,23 @@ class AppViewModel(
     private val dayMealPlanRepository: DayMealPlanRepository
 ) : ViewModel() {
 
+    private companion object {
+        private const val TAG = "AppViewModel"
+        private const val DEFAULT_USER_NAME = "Guest"
+        private const val DEFAULT_USER_EMAIL = "guest@example.com"
+        private const val DEFAULT_MAX_TIME = 60
+        private const val DEFAULT_BUDGET = 0
+        private const val DEFAULT_DIET = "Balanced"
+    }
+
     private val aiEngine = AIEngine()
 
     // ===== User State =====
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    var userName by mutableStateOf("Student")
-    var userEmail by mutableStateOf("alex.chen@university.edu")
+    var userName by mutableStateOf(DEFAULT_USER_NAME)
+    var userEmail by mutableStateOf(DEFAULT_USER_EMAIL)
 
     // ===== Recipes State =====
     private val _allRecipes = MutableStateFlow<List<Recipe>>(emptyList())
@@ -52,30 +74,45 @@ class AppViewModel(
 
     // ===== Meal Plan State =====
     var selectedDayPlan by mutableStateOf<DayMealPlan?>(null)
+        private set
+
+    var selectedMood by mutableStateOf(MoodType.COMFORT)
+        private set
+
+    fun updateMood(mood: MoodType) {
+        selectedMood = mood
+    }
 
     private val _mealPlans = MutableStateFlow<List<MealPlan>>(emptyList())
     val mealPlans: StateFlow<List<MealPlan>> = _mealPlans.asStateFlow()
 
-    // ===== Loading States =====
+    // ===== Loading & Error States =====
     var isLoading by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf("")
+        private set
 
     init {
         loadInitialData()
     }
 
     /**
-     * Load all initial data
+     * Safe initialization of all data with proper error handling
      */
     private fun loadInitialData() {
         viewModelScope.launch {
             try {
                 isLoading = true
+                Log.d(TAG, "Starting initial data load...")
+
+                // Load sequentially to ensure data integrity
+                loadUser()
                 loadRecipes()
                 loadFavorites()
-                loadUser()
+
+                Log.d(TAG, "Initial data load completed successfully")
             } catch (e: Exception) {
-                errorMessage = "Error loading data: ${e.message}"
+                handleError("Error loading initial data", e)
             } finally {
                 isLoading = false
             }
@@ -83,274 +120,477 @@ class AppViewModel(
     }
 
     /**
-     * Load all recipes from database
+     * Safe recipe loading with empty list fallback
      */
     fun loadRecipes() {
         viewModelScope.launch {
             try {
                 val recipes = recipeRepository.getAllRecipes()
-                _allRecipes.value = recipes
+                    ?: emptyList() // Safe fallback
+                _allRecipes.value = recipes.filterNotNull() // Remove any null entries
+                Log.d(TAG, "Loaded ${recipes.size} recipes")
             } catch (e: Exception) {
-                errorMessage = "Error loading recipes: ${e.message}"
+                handleError("Error loading recipes", e)
+                // Keep existing recipes on error
             }
         }
     }
 
     /**
-     * Load user profile
+     * Safe user profile loading
      */
     fun loadUser() {
         viewModelScope.launch {
             try {
                 val user = userRepository.getUserProfile()
-                _currentUser.value = user
                 if (user != null) {
-                    userName = user.name
-                    userEmail = user.email
+                    _currentUser.value = user
+                    // Safe name assignment
+                    userName = user.name.takeIf { it.isNotBlank() } ?: DEFAULT_USER_NAME
+                    userEmail = user.email.takeIf { it.isNotBlank() } ?: DEFAULT_USER_EMAIL
+                    Log.d(TAG, "User loaded: ${user.name}")
+                } else {
+                    Log.d(TAG, "No user profile found")
+                    setDefaultUser()
                 }
             } catch (e: Exception) {
-                errorMessage = "Error loading user: ${e.message}"
+                handleError("Error loading user", e)
+                setDefaultUser()
             }
         }
     }
 
     /**
-     * Auth: Sign up a new user
+     * Set default user when none exists
+     */
+    private fun setDefaultUser() {
+        userName = DEFAULT_USER_NAME
+        userEmail = DEFAULT_USER_EMAIL
+        _currentUser.value = null
+    }
+
+    /**
+     * Safe sign up with validation
      */
     fun signUp(name: String, email: String, diet: String) {
         viewModelScope.launch {
             try {
+                // Validate inputs
+                val safeName = name.takeIf { it.isNotBlank() } ?: run {
+                    setError("Name cannot be empty")
+                    return@launch
+                }
+                val safeEmail = email.takeIf { it.isNotBlank() } ?: run {
+                    setError("Email cannot be empty")
+                    return@launch
+                }
+                val safeDiet = diet.takeIf { it.isNotBlank() } ?: DEFAULT_DIET
+
                 val newUser = User(
                     id = java.util.UUID.randomUUID().toString(),
-                    name = name,
-                    email = email,
-                    dietCategory = diet
+                    name = safeName,
+                    email = safeEmail,
+                    dietCategory = safeDiet
                 )
+
                 saveUser(newUser)
                 _currentUser.value = newUser
+                Log.d(TAG, "Sign up successful for: $safeName")
             } catch (e: Exception) {
-                errorMessage = "Sign up failed: ${e.message}"
+                handleError("Sign up failed", e)
             }
         }
     }
 
     /**
-     * Auth: Sign in with email
+     * Safe sign in with email validation
      */
     fun signIn(email: String) {
         viewModelScope.launch {
             try {
-                val user = userRepository.getUserByEmail(email)
+                val safeEmail = email.takeIf { it.isNotBlank() } ?: run {
+                    setError("Email cannot be empty")
+                    return@launch
+                }
+
+                val user = userRepository.getUserByEmail(safeEmail)
                 if (user != null) {
                     _currentUser.value = user
-                    userName = user.name
-                    userEmail = user.email
+                    userName = user.name.takeIf { it.isNotBlank() } ?: DEFAULT_USER_NAME
+                    userEmail = user.email.takeIf { it.isNotBlank() } ?: DEFAULT_USER_EMAIL
+                    clearError()
+                    Log.d(TAG, "Sign in successful")
                 } else {
-                    errorMessage = "User not found"
+                    setError("User not found")
+                    Log.w(TAG, "User not found with email: $safeEmail")
                 }
             } catch (e: Exception) {
-                errorMessage = "Sign in failed: ${e.message}"
+                handleError("Sign in failed", e)
             }
         }
     }
 
     /**
-     * Save currently selected day plan to DB
+     * Safe sign out - clears user state
+     */
+    fun signOut() {
+        viewModelScope.launch {
+            try {
+                _currentUser.value = null
+                setDefaultUser()
+                selectedDayPlan = null
+                Log.d(TAG, "User signed out successfully")
+            } catch (e: Exception) {
+                handleError("Error during sign out", e)
+            }
+        }
+    }
+
+    /**
+     * Deduct spent amount from weekly budget
+     */
+    fun recordPurchase(amount: Double) {
+        viewModelScope.launch {
+            try {
+                val profile = userRepository.getUserProfile() // Get current user
+                if (profile != null) {
+                    // Update user's budget locally in the UserProfile too if needed
+                    // For now we update the UI state and should persist it
+                    val currentProfile = _currentUser.value
+                    if (currentProfile != null) {
+                        val newBudget = (currentProfile.budget - amount.toInt()).coerceAtLeast(0)
+                        val updatedUser = currentProfile.copy(budget = newBudget)
+                        saveUser(updatedUser)
+                        Log.d(TAG, "Deducted $amount from budget. New budget: $newBudget")
+                    }
+                }
+            } catch (e: Exception) {
+                handleError("Failed to deduct from budget", e)
+            }
+        }
+    }
+    fun saveUser(user: User) {
+        viewModelScope.launch {
+            try {
+                if (user.name.isBlank()) {
+                    setError("User name cannot be empty")
+                    return@launch
+                }
+
+                userRepository.saveUser(user)
+                _currentUser.value = user
+                userName = user.name
+                userEmail = user.email
+                clearError()
+                Log.d(TAG, "User saved successfully")
+            } catch (e: Exception) {
+                handleError("Error saving user", e)
+            }
+        }
+    }
+
+    /**
+     * Safe day plan selection and saving
      */
     fun useThisDayPlan(plan: DayMealPlan) {
         viewModelScope.launch {
             try {
                 selectedDayPlan = plan
-                // Save to MealPlanEntity (id = 1 for current active plan)
+
+                // Safe recipe ID extraction with fallbacks
                 val mealPlan = MealPlan(
                     id = 1,
-                    day = plan.dayOfWeek,
-                    breakfastId = plan.breakfast.recipeId ?: "",
-                    lunchId = plan.lunch.recipeId ?: "",
-                    dinnerId = plan.dinner.recipeId ?: "",
-                    snackId = plan.snack.recipeId ?: ""
+                    day = plan.dayOfWeek.takeIf { it.isNotBlank() } ?: "Monday",
+                    breakfastId = plan.breakfast?.recipeId?.takeIf { it.isNotBlank() } ?: "",
+                    lunchId = plan.lunch?.recipeId?.takeIf { it.isNotBlank() } ?: "",
+                    dinnerId = plan.dinner?.recipeId?.takeIf { it.isNotBlank() } ?: "",
+                    snackId = plan.snack?.recipeId?.takeIf { it.isNotBlank() } ?: ""
                 )
+
                 saveMealPlan(mealPlan)
+                Log.d(TAG, "Day plan selected: ${plan.dayOfWeek}")
             } catch (e: Exception) {
-                errorMessage = "Failed to save day plan: ${e.message}"
+                handleError("Failed to save day plan", e)
+                selectedDayPlan = null // Reset on error
             }
         }
     }
 
     /**
-     * Save user to database
-     */
-    fun saveUser(user: User) {
-        viewModelScope.launch {
-            try {
-                userRepository.saveUser(user)
-                _currentUser.value = user
-                userName = user.name
-                userEmail = user.email
-            } catch (e: Exception) {
-                errorMessage = "Error saving user: ${e.message}"
-            }
-        }
-    }
-
-    /**
-     * Load favorites from database using a JOIN
+     * Safe favorites loading with join operation
      */
     fun loadFavorites() {
         viewModelScope.launch {
             try {
-                // Use the repository method that performs the database join
-                val favorites = recipeRepository.getFavoriteRecipes()
+                val favorites = recipeRepository.getFavoriteRecipes() ?: emptyList()
+
                 savedRecipes.clear()
-                savedRecipes.addAll(favorites)
-                
-                // Update the IDs set for quick UI lookups
-                _favoriteRecipeIds.value = favorites.map { it.id }.toSet()
+                savedRecipes.addAll(favorites.filterNotNull())
+
+                _favoriteRecipeIds.value = favorites
+                    .filterNotNull()
+                    .map { it.id }
+                    .filter { it.isNotBlank() }
+                    .toSet()
+
+                Log.d(TAG, "Loaded ${savedRecipes.size} favorite recipes")
             } catch (e: Exception) {
-                errorMessage = "Error loading favorites: ${e.message}"
+                handleError("Error loading favorites", e)
+                // Keep existing favorites on error
             }
         }
     }
 
     /**
-     * Toggle favorite status of a recipe using database
+     * Safe favorite toggle with immediate UI update
      */
     fun toggleFavorite(recipe: Recipe) {
         viewModelScope.launch {
             try {
+                if (recipe.id.isBlank()) {
+                    setError("Invalid recipe ID")
+                    return@launch
+                }
+
                 val isCurrentlyFavorite = recipe.id in _favoriteRecipeIds.value
 
                 if (isCurrentlyFavorite) {
                     // Remove from database
                     favoriteRepository.deleteFavorite(recipe.id)
-                    // Immediate UI update
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value - recipe.id
                     savedRecipes.removeAll { it.id == recipe.id }
+                    Log.d(TAG, "Recipe removed from favorites: ${recipe.title}")
                 } else {
                     // Save to database
                     favoriteRepository.saveFavorite(Favorite(recipeId = recipe.id))
-                    // Immediate UI update
                     _favoriteRecipeIds.value = _favoriteRecipeIds.value + recipe.id
                     if (savedRecipes.none { it.id == recipe.id }) {
                         savedRecipes.add(recipe)
                     }
+                    Log.d(TAG, "Recipe added to favorites: ${recipe.title}")
                 }
+                clearError()
             } catch (e: Exception) {
-                errorMessage = "Error toggling favorite: ${e.message}"
+                handleError("Error toggling favorite", e)
             }
         }
     }
 
     /**
-     * Check if recipe is favorite
+     * Safe favorite check
      */
     fun isFavorite(recipeId: String): Boolean {
-        return recipeId in _favoriteRecipeIds.value
+        return recipeId.isNotBlank() && recipeId in _favoriteRecipeIds.value
     }
 
     /**
-     * Get daily ideas based on user constraints
+     * Safe daily ideas generation
      */
     fun generateDailyIdeas(
-        dietCategory: String = _currentUser.value?.dietCategory ?: "Balanced",
-        maxTime: Int = _currentUser.value?.maxTime ?: 60,
-        budget: String = when {
-            (_currentUser.value?.budget ?: 0) < 200 -> "Low"
-            (_currentUser.value?.budget ?: 0) < 500 -> "Mid"
-            else -> "High"
-        }
+        dietCategory: String? = _currentUser.value?.dietCategory,
+        maxTime: Int? = _currentUser.value?.maxTime,
+        budget: String? = null
     ) {
         viewModelScope.launch {
             try {
+                val safeDiet = dietCategory.takeIf { !it.isNullOrBlank() } ?: DEFAULT_DIET
+                val safeMaxTime = maxTime?.takeIf { it > 0 } ?: DEFAULT_MAX_TIME
+
+                val safeBudget = budget ?: when {
+                    (_currentUser.value?.budget ?: DEFAULT_BUDGET) < 200 -> "Low"
+                    (_currentUser.value?.budget ?: DEFAULT_BUDGET) < 500 -> "Mid"
+                    else -> "High"
+                }
+
+                val recipes = _allRecipes.value.takeIf { it.isNotEmpty() } ?: emptyList()
                 val ideas = aiEngine.generateDailyIdeas(
-                    _allRecipes.value,
-                    dietCategory,
-                    maxTime,
-                    budget
+                    recipes,
+                    safeDiet,
+                    safeMaxTime,
+                    safeBudget
                 )
-                _dailyIdeas.value = ideas
+
+                _dailyIdeas.value = ideas.filterNotNull()
+                clearError()
+                Log.d(TAG, "Generated ${ideas.size} daily ideas")
             } catch (e: Exception) {
-                errorMessage = "Error generating daily ideas: ${e.message}"
+                handleError("Error generating daily ideas", e)
+                _dailyIdeas.value = emptyList()
             }
         }
     }
 
     /**
-     * Get recipes for weekly planning
+     * Safe weekly plan generation with variety
      */
     fun generateWeeklyPlan(
-        dietCategory: String = _currentUser.value?.dietCategory ?: "Balanced",
-        maxTime: Int = _currentUser.value?.maxTime ?: 60,
-        budget: String = when {
-            (_currentUser.value?.budget ?: 0) < 200 -> "Low"
-            (_currentUser.value?.budget ?: 0) < 500 -> "Mid"
-            else -> "High"
-        }
+        dietCategory: String? = _currentUser.value?.dietCategory,
+        maxTime: Int? = _currentUser.value?.maxTime,
+        budget: String? = null
     ): List<Recipe> {
-        return aiEngine.generateWeeklyRecipes(
-            _allRecipes.value,
-            dietCategory,
-            maxTime,
-            budget
-        )
+        return try {
+            val safeDiet = dietCategory.takeIf { !it.isNullOrBlank() } ?: DEFAULT_DIET
+            val safeMaxTime = maxTime?.takeIf { it > 0 } ?: DEFAULT_MAX_TIME
+
+            val safeBudget = budget ?: when {
+                (_currentUser.value?.budget ?: DEFAULT_BUDGET) < 200 -> "Low"
+                (_currentUser.value?.budget ?: DEFAULT_BUDGET) < 500 -> "Mid"
+                else -> "High"
+            }
+
+            val recipes = _allRecipes.value.takeIf { it.isNotEmpty() } ?: emptyList()
+            val weeklyRecipes = aiEngine.generateWeeklyRecipes(
+                recipes,
+                safeDiet,
+                safeMaxTime,
+                safeBudget
+            )
+
+            Log.d(TAG, "Generated weekly plan with ${weeklyRecipes.size} recipes")
+            weeklyRecipes.filterNotNull()
+        } catch (e: Exception) {
+            handleError("Error generating weekly plan", e)
+            emptyList()
+        }
     }
 
     /**
-     * Find recipes based on leftover ingredients
+     * Safe leftover recipes finding
      */
     fun findRecipesByLeftovers(ingredients: List<String>): List<Recipe> {
-        return aiEngine.findRecipesByLeftovers(ingredients, _allRecipes.value)
+        return try {
+            if (ingredients.isEmpty()) {
+                setError("Please provide at least one ingredient")
+                return emptyList()
+            }
+
+            val safeIngredients = ingredients
+                .filterNotNull()
+                .filter { it.isNotBlank() }
+
+            val recipes = _allRecipes.value.takeIf { it.isNotEmpty() } ?: emptyList()
+            val results = aiEngine.findRecipesByLeftovers(safeIngredients, recipes)
+
+            clearError()
+            Log.d(TAG, "Found ${results.size} recipes from leftovers")
+            results.filterNotNull()
+        } catch (e: Exception) {
+            handleError("Error finding leftover recipes", e)
+            emptyList()
+        }
     }
 
     /**
-     * Get recipes for variety (avoid repetition)
+     * Safe variety recipes with repetition avoidance
      */
     fun getRecipesWithVariety(
         previousRecipeIds: List<String>,
         count: Int = 7
     ): List<Recipe> {
-        return aiEngine.getRecipesWithVariety(_allRecipes.value, previousRecipeIds, count)
+        return try {
+            if (count <= 0) {
+                setError("Count must be greater than 0")
+                return emptyList()
+            }
+
+            val safePreviousIds = previousRecipeIds.filterNotNull().filter { it.isNotBlank() }
+            val recipes = _allRecipes.value.takeIf { it.isNotEmpty() } ?: emptyList()
+            val results = aiEngine.getRecipesWithVariety(recipes, safePreviousIds, count)
+
+            clearError()
+            Log.d(TAG, "Generated ${results.size} variety recipes")
+            results.filterNotNull()
+        } catch (e: Exception) {
+            handleError("Error getting variety recipes", e)
+            emptyList()
+        }
     }
 
     /**
-     * Load meal plans
+     * Safe meal plans loading
      */
     fun loadMealPlans() {
         viewModelScope.launch {
             try {
-                val plans = dayMealPlanRepository.getAllMealPlans()
-                _mealPlans.value = plans
+                val plans = dayMealPlanRepository.getAllMealPlans() ?: emptyList()
+                _mealPlans.value = plans.filterNotNull()
+                Log.d(TAG, "Loaded ${plans.size} meal plans")
             } catch (e: Exception) {
-                errorMessage = "Error loading meal plans: ${e.message}"
+                handleError("Error loading meal plans", e)
+                // Keep existing plans on error
             }
         }
     }
 
     /**
-     * Save meal plan
+     * Safe meal plan saving
      */
     fun saveMealPlan(mealPlan: MealPlan) {
         viewModelScope.launch {
             try {
+                if (mealPlan.day.isBlank()) {
+                    setError("Meal plan day cannot be empty")
+                    return@launch
+                }
+
                 dayMealPlanRepository.saveMealPlan(mealPlan)
                 loadMealPlans()
+                clearError()
+                Log.d(TAG, "Meal plan saved for: ${mealPlan.day}")
             } catch (e: Exception) {
-                errorMessage = "Error saving meal plan: ${e.message}"
+                handleError("Error saving meal plan", e)
             }
         }
     }
 
     /**
-     * Delete meal plan
+     * Safe meal plan deletion
      */
     fun deleteMealPlan(id: Int) {
         viewModelScope.launch {
             try {
+                if (id <= 0) {
+                    setError("Invalid meal plan ID")
+                    return@launch
+                }
+
                 dayMealPlanRepository.deleteMealPlan(id)
+                if (selectedDayPlan != null) {
+                    selectedDayPlan = null
+                }
                 loadMealPlans()
+                Log.d(TAG, "Meal plan deleted: ID $id")
             } catch (e: Exception) {
-                errorMessage = "Error deleting meal plan: ${e.message}"
+                handleError("Error deleting meal plan", e)
             }
         }
+    }
+
+    // ===== Error & State Management =====
+
+    /**
+     * Set error message safely
+     */
+    private fun setError(message: String) {
+        val safeMessage = message.takeIf { it.isNotBlank() } ?: "An unknown error occurred"
+        errorMessage = safeMessage
+        Log.e(TAG, safeMessage)
+    }
+
+    /**
+     * Clear error message
+     */
+    fun clearError() {
+        errorMessage = ""
+    }
+
+    /**
+     * Centralized error handling
+     */
+    private fun handleError(context: String, exception: Exception) {
+        val message = exception.message?.takeIf { it.isNotBlank() }
+            ?: "An unknown error occurred"
+        Log.e(TAG, "$context: $message", exception)
+        setError("$context: $message")
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,23 +24,25 @@ import androidx.navigation.navArgument
 import com.example.nutrismart.presentation.home.HomeScreen
 import com.example.nutrismart.presentation.screens.*
 import com.example.nutrismart.presentation.viewmodel.*
+import com.example.nutrismart.presentation.leftoverremix.ImprovedLeftoverRemixScreen
 
 private const val TAG = "SafeNavGraph"
 
 /**
- * SAFE Navigation Graph
+ * SAFE Navigation Graph - Updated with All Enhancements
  *
- * Best Practices:
- * 1. Remove try-catch around composable invocations (illegal in Compose).
- * 2. Handle data/initialization errors in ViewModels.
- * 3. Use null-safe argument handling.
+ * This version includes:
+ * 1. Enhanced Auth with onboarding flow
+ * 2. User Habits Form (Onboarding)
+ * 3. Improved Leftover Remix
+ * 4. Enhanced Shopping List
+ * 5. Complete Null Safety & Error Fallbacks
  */
 @Composable
 fun SafeNutriSmartNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    // AppViewModel initialization
     val appViewModel: AppViewModel = viewModel(factory = ViewModelFactory)
 
     NavHost(
@@ -47,11 +51,31 @@ fun SafeNutriSmartNavGraph(
         modifier = modifier
     ) {
         composable(Screen.Auth.route) {
-            AuthScreen(
+            EnhancedAuthScreen(
                 appViewModel = appViewModel,
                 onLoginSuccess = {
+                    // Check if profile exists to determine if onboarding is mandatory
+                    if (appViewModel.currentUser.value != null) {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Auth.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.Onboarding.route) {
+                            popUpTo(Screen.Auth.route) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.Onboarding.route) {
+            UserHabitsFormScreen(
+                appViewModel = appViewModel,
+                onComplete = { habits ->
+                    Log.d(TAG, "Onboarding complete: $habits")
+                    // After onboarding, we definitely go to Home
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Auth.route) { inclusive = true }
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
                     }
                 }
             )
@@ -60,21 +84,11 @@ fun SafeNutriSmartNavGraph(
         composable(Screen.Home.route) {
             HomeScreen(
                 appViewModel = appViewModel,
-                onNavigateToProfile = {
-                    navController.navigate(Screen.UserProfile.route)
-                },
-                onNavigateToPlanner = {
-                    navController.navigate(Screen.MealPlanner.route)
-                },
-                onNavigateToDailyIdeas = {
-                    navController.navigate(Screen.DailyIdeas.route)
-                },
-                onNavigateToLeftovers = {
-                    navController.navigate(Screen.LeftoverRemix.route)
-                },
-                onNavigateToShoppingList = {
-                    navController.navigate(Screen.ShoppingList.route)
-                },
+                onNavigateToProfile = { navController.navigate(Screen.UserProfile.route) },
+                onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) },
+                onNavigateToDailyIdeas = { navController.navigate(Screen.DailyIdeas.route) },
+                onNavigateToLeftovers = { navController.navigate(Screen.LeftoverRemix.route) },
+                onNavigateToShoppingList = { navController.navigate(Screen.ShoppingList.route) },
                 onRecipeClick = { id ->
                     if (id.isNotBlank()) {
                         navController.navigate(Screen.RecipeDetails.createRoute(id))
@@ -85,9 +99,9 @@ fun SafeNutriSmartNavGraph(
 
         composable(Screen.DailyIdeas.route) {
             val dailyIdeasViewModel: DailyIdeasViewModel = viewModel(factory = ViewModelFactory)
-
             DailyIdeasScreen(
                 viewModel = dailyIdeasViewModel,
+                appViewModel = appViewModel,
                 onRecipeClick = { id ->
                     if (id.isNotBlank()) {
                         navController.navigate(Screen.RecipeDetails.createRoute(id))
@@ -99,28 +113,20 @@ fun SafeNutriSmartNavGraph(
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 },
-                onNavigateToPlanner = {
-                    navController.navigate(Screen.MealPlanner.route)
-                },
-                onNavigateToShopping = {
-                    navController.navigate(Screen.ShoppingList.route)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(Screen.UserProfile.route)
-                }
+                onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) },
+                onNavigateToShopping = { navController.navigate(Screen.ShoppingList.route) },
+                onNavigateToProfile = { navController.navigate(Screen.UserProfile.route) }
             )
         }
 
         composable(Screen.UserProfile.route) {
             val profileViewModel: ProfileViewModel = viewModel(factory = ViewModelFactory)
-
             ProfileScreen(
                 viewModel = profileViewModel,
                 appViewModel = appViewModel,
-                onNavigateToSavedRecipes = {
-                    navController.navigate(Screen.SavedRecipes.route)
-                },
+                onNavigateToSavedRecipes = { navController.navigate(Screen.SavedRecipes.route) },
                 onLogout = {
+                    appViewModel.signOut()
                     navController.navigate(Screen.Auth.route) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -142,7 +148,6 @@ fun SafeNutriSmartNavGraph(
 
         composable(Screen.MealPlanner.route) {
             val plannerViewModel: WeeklyPlannerViewModel = viewModel(factory = ViewModelFactory)
-
             WeeklyPlannerScreen(
                 viewModel = plannerViewModel,
                 appViewModel = appViewModel,
@@ -157,37 +162,19 @@ fun SafeNutriSmartNavGraph(
         }
 
         composable(Screen.LeftoverRemix.route) {
-            val leftoverViewModel: LeftoverRecipesViewModel = viewModel(factory = ViewModelFactory)
-
-            LeftoverRecipesScreen(
-                viewModel = leftoverViewModel,
-                onRecipeClick = { id ->
-                    if (id.isNotBlank()) {
-                        navController.navigate(Screen.RecipeDetails.createRoute(id))
-                    }
-                },
-                onBackClick = { navController.popBackStack() }
-            )
+            // Using the IMPROVED version of Leftover Remix
+            ImprovedLeftoverRemixScreen()
         }
 
         composable(Screen.ShoppingList.route) {
             val shoppingViewModel: ShoppingListViewModel = viewModel(factory = ViewModelFactory)
-
-            // Business logic for redirection should ideally be in a ViewModel or use a side effect
-            // For now, simple check within the composable is okay if followed by a UI state
-            val selectedPlan = appViewModel.selectedDayPlan
-            if (selectedPlan == null) {
-                ErrorFallbackScreen(
-                    message = "Please select a meal plan first",
-                    onBack = { navController.popBackStack() }
-                )
-            } else {
-                ShoppingListScreen(
-                    viewModel = shoppingViewModel,
-                    appViewModel = appViewModel,
-                    mealPlanId = "active_plan"
-                )
-            }
+            
+            // Using ENHANCED version of Shopping List
+            EnhancedShoppingListScreen(
+                viewModel = shoppingViewModel,
+                appViewModel = appViewModel,
+                mealPlanId = "active_plan"
+            )
         }
 
         composable(
@@ -213,15 +200,9 @@ fun SafeNutriSmartNavGraph(
                             popUpTo(Screen.Home.route) { inclusive = true }
                         }
                     },
-                    onNavigateToPlanner = {
-                        navController.navigate(Screen.MealPlanner.route)
-                    },
-                    onNavigateToShopping = {
-                        navController.navigate(Screen.ShoppingList.route)
-                    },
-                    onNavigateToProfile = {
-                        navController.navigate(Screen.UserProfile.route)
-                    }
+                    onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) },
+                    onNavigateToShopping = { navController.navigate(Screen.ShoppingList.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.UserProfile.route) }
                 )
             }
         }

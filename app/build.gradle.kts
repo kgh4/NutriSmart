@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -56,6 +57,14 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // AI (Gemini Free Tier)
+    implementation(libs.google.generative.ai)
+    implementation(libs.kotlinx.serialization.json)
+    
+    buildFeatures {
+        buildConfig = true
+    }
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -1,5 +1,7 @@
 package com.example.nutrismart.domain.ai
 
+import com.example.nutrismart.domain.model.DailyIdea
+import com.example.nutrismart.domain.model.MoodType
 import com.example.nutrismart.domain.model.Recipe
 import kotlin.random.Random
 
@@ -10,6 +12,49 @@ import kotlin.random.Random
  * - Leftover ingredient matching
  */
 class AIEngine {
+
+    /**
+     * Mood-aware Daily Ideas AI
+     */
+    fun generateMoodIdeas(
+        recipes: List<Recipe>,
+        mood: MoodType,
+        dietCategory: String,
+        maxTime: Int,
+        budget: String
+    ): List<DailyIdea> {
+        val filtered = recipes.filter { recipe ->
+            recipe.dietCategory.equals(dietCategory, ignoreCase = true) &&
+            isBudgetMatching(recipe.budget, budget)
+        }
+
+        val moodMatches = when (mood) {
+            MoodType.COMFORT -> filtered.filter { it.calories > 400 || it.ingredients.contains("cheese", ignoreCase = true) }
+            MoodType.ENERGETIC -> filtered.filter { it.calories in 300..600 }
+            MoodType.LIGHT -> filtered.filter { it.calories < 350 }
+            MoodType.FOCUS -> filtered.filter { it.ingredients.contains("fish", ignoreCase = true) || it.ingredients.contains("nuts", ignoreCase = true) || it.calories < 500 }
+            MoodType.QUICK -> filtered.filter { it.time <= 20 }
+            MoodType.SURPRISE -> filtered.shuffled()
+        }.shuffled().take(6)
+
+        return moodMatches.map { recipe ->
+            DailyIdea(
+                recipe = recipe,
+                moodTitle = generateMoodTitle(recipe.title, mood)
+            )
+        }
+    }
+
+    private fun generateMoodTitle(originalTitle: String, mood: MoodType): String {
+        return when (mood) {
+            MoodType.COMFORT -> "🧸 Cozy $originalTitle"
+            MoodType.ENERGETIC -> "⚡ Power-Fuel: $originalTitle"
+            MoodType.LIGHT -> "🥗 Fresh & Zesty $originalTitle"
+            MoodType.FOCUS -> "🧠 Brain-Booster $originalTitle"
+            MoodType.QUICK -> "⏱️ Snap-and-Eat $originalTitle"
+            MoodType.SURPRISE -> "🎁 Wonder-Bowl: $originalTitle"
+        }
+    }
 
     /**
      * Weekly Planner AI: Filter recipes and rotate meals

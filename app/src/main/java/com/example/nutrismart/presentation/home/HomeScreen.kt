@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +25,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.*
+import com.example.nutrismart.domain.model.MoodType
 import com.example.nutrismart.domain.model.Recipe
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
 import com.example.nutrismart.util.RecipeImageMapper
@@ -37,6 +41,8 @@ fun HomeScreen(
     onNavigateToShoppingList: () -> Unit,
     onRecipeClick: (String) -> Unit
 ) {
+    val activePlan = appViewModel.selectedDayPlan
+
     Scaffold(
         bottomBar = {
             BottomNavigationBar(
@@ -54,14 +60,29 @@ fun HomeScreen(
                 .background(Color(0xFFF8F9FA))
         ) {
             item {
-                HeaderSection(appViewModel.userName)
+                HeaderSection(
+                    userName = appViewModel.userName,
+                    selectedMood = appViewModel.selectedMood,
+                    onMoodSelect = { appViewModel.updateMood(it) }
+                )
+            }
+
+            // NEW: Active Plan Section
+            if (activePlan != null) {
+                item {
+                    ActivePlanSection(
+                        dayPlan = activePlan,
+                        onRecipeClick = onRecipeClick
+                    )
+                }
             }
 
             item {
                 Column(
                     modifier = Modifier
                         .padding(horizontal = 24.dp)
-                        .offset(y = (-40).dp),
+                        .padding(top = if (activePlan != null) 24.dp else 0.dp)
+                        .offset(y = if (activePlan != null) 0.dp else (-40).dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     ActionCard(
@@ -123,34 +144,221 @@ fun HomeScreen(
 }
 
 @Composable
-fun HeaderSection(userName: String) {
-    Box(
+fun ActivePlanSection(
+    dayPlan: com.example.nutrismart.domain.model.DayMealPlan,
+    onRecipeClick: (String) -> Unit
+) {
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-            .background(Color(0xFF12B347))
-            .padding(horizontal = 24.dp, vertical = 40.dp)
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Text(
+                text = "Today's Active Plan",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1A1C1E)
+            )
+            Surface(
+                color = Color(0xFF12B347).copy(alpha = 0.1f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
                 Text(
-                    text = "Hi $userName!",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "What's cooking today?",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 16.sp
+                    text = dayPlan.dayOfWeek,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    color = Color(0xFF12B347),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
                 )
             }
-            // Removed top-right icon
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Show Breakfast, Lunch, Dinner
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            dayPlan.breakfast.recipe?.let { recipe ->
+                ActiveMealCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Breakfast",
+                    recipe = recipe,
+                    onClick = { onRecipeClick(recipe.id) }
+                )
+            }
+            dayPlan.lunch.recipe?.let { recipe ->
+                ActiveMealCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Lunch",
+                    recipe = recipe,
+                    onClick = { onRecipeClick(recipe.id) }
+                )
+            }
+            dayPlan.dinner.recipe?.let { recipe ->
+                ActiveMealCard(
+                    modifier = Modifier.weight(1f),
+                    label = "Dinner",
+                    recipe = recipe,
+                    onClick = { onRecipeClick(recipe.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiveMealCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    recipe: com.example.nutrismart.domain.model.Recipe,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(140.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Image(
+                    painter = painterResource(id = RecipeImageMapper.getRecipeImage(recipe.id)),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Surface(
+                    modifier = Modifier.padding(8.dp),
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = label,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            Text(
+                text = recipe.title,
+                modifier = Modifier.padding(8.dp),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                color = Color(0xFF1A1C1E)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HeaderSection(
+    userName: String,
+    selectedMood: MoodType,
+    onMoodSelect: (MoodType) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+            .background(Color(0xFF12B347))
+            .padding(horizontal = 24.dp, vertical = 40.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Hi $userName!",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "What's cooking today?",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            AnimatedContent(
+                targetState = selectedMood,
+                transitionSpec = {
+                    fadeIn() + slideInVertically() togetherWith fadeOut() + slideOutVertically()
+                },
+                label = "MoodTitle"
+            ) { mood ->
+                Text(
+                    text = "${mood.emoji} Feeling ${mood.displayName}?",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Mood Selector
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                MoodType.values().take(3).forEachIndexed { index, mood ->
+                    SegmentedButton(
+                        selected = selectedMood == mood,
+                        onClick = { onMoodSelect(mood) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = Color.White.copy(alpha = 0.3f),
+                            activeContentColor = Color.White,
+                            inactiveContainerColor = Color.Transparent,
+                            inactiveContentColor = Color.White.copy(alpha = 0.7f),
+                            activeBorderColor = Color.White,
+                            inactiveBorderColor = Color.White.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Text("${mood.emoji} ${mood.displayName}", fontSize = 10.sp)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                MoodType.values().takeLast(3).forEachIndexed { index, mood ->
+                    SegmentedButton(
+                        selected = selectedMood == mood,
+                        onClick = { onMoodSelect(mood) },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = Color.White.copy(alpha = 0.3f),
+                            activeContentColor = Color.White,
+                            inactiveContainerColor = Color.Transparent,
+                            inactiveContentColor = Color.White.copy(alpha = 0.7f),
+                            activeBorderColor = Color.White,
+                            inactiveBorderColor = Color.White.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Text("${mood.emoji} ${mood.displayName}", fontSize = 10.sp)
+                    }
+                }
+            }
         }
     }
 }

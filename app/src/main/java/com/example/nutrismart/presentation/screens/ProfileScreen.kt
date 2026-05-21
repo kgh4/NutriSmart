@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.example.nutrismart.presentation.viewmodel.ProfileViewModel
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
@@ -39,12 +40,10 @@ fun ProfileScreen(
 
     if (showEditDialog) {
         EditProfileDialog(
-            currentName = appViewModel.userName,
-            currentEmail = appViewModel.userEmail,
+            profile = uiState.profile,
             onDismiss = { showEditDialog = false },
-            onConfirm = { newName, newEmail ->
-                appViewModel.userName = newName
-                appViewModel.userEmail = newEmail
+            onConfirm = { updatedProfile ->
+                viewModel.saveProfile(updatedProfile)
                 showEditDialog = false
             }
         )
@@ -81,7 +80,7 @@ fun ProfileScreen(
                     ) {
                         StatCard(Modifier.weight(1f), "${appViewModel.savedRecipes.size}", "Recipes Saved", onClick = onNavigateToSavedRecipes)
                         StatCard(Modifier.weight(1f), "12", "Weeks Planned")
-                        StatCard(Modifier.weight(1f), "45 TND", "Avg. Weekly")
+                        StatCard(Modifier.weight(1f), "${uiState.profile?.weeklyBudget?.toInt() ?: 0} TND", "Avg. Weekly")
                     }
 
                     ProfileSectionTitle("Preferences")
@@ -96,7 +95,7 @@ fun ProfileScreen(
                                 icon = Icons.Default.Person,
                                 iconColor = Color(0xFF16A34A),
                                 title = "Dietary Restrictions",
-                                subtitle = uiState.profile?.dietCategory ?: "Vegetarian"
+                                subtitle = uiState.profile?.dietCategory ?: "Balanced"
                             )
                             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                             ProfileMenuItem(
@@ -122,14 +121,14 @@ fun ProfileScreen(
                                 icon = Icons.Default.AccountBalanceWallet,
                                 iconColor = Color(0xFF9B59B6),
                                 title = "Weekly Budget",
-                                subtitle = "50 TND"
+                                subtitle = "${uiState.profile?.weeklyBudget?.toInt() ?: 50} TND"
                             )
                             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                             ProfileMenuItem(
                                 icon = Icons.Default.Favorite,
                                 iconColor = Color(0xFFEF4444),
                                 title = "Calorie Goal",
-                                subtitle = "2000 cal/day"
+                                subtitle = "${uiState.profile?.availableMinutesPerDay ?: 2000} cal/day"
                             )
                         }
                     }
@@ -159,27 +158,77 @@ fun ProfileScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileDialog(
-    currentName: String,
-    currentEmail: String,
+    profile: com.example.nutrismart.domain.model.UserProfile?,
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (com.example.nutrismart.domain.model.UserProfile) -> Unit
 ) {
-    var name by remember { mutableStateOf(currentName) }
-    var email by remember { mutableStateOf(currentEmail) }
+    var name by remember { mutableStateOf(profile?.name ?: "") }
+    var diet by remember { mutableStateOf(profile?.dietCategory ?: "Balanced") }
+    var skill by remember { mutableStateOf(profile?.cookingSkill ?: "Beginner") }
+    var budget by remember { mutableStateOf(profile?.weeklyBudget?.toString() ?: "50") }
+    var calories by remember { mutableStateOf(profile?.availableMinutesPerDay?.toString() ?: "2000") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Profile") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                
+                Text("Dietary Preference", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val dietOptions = listOf("Balanced", "Vegetarian", "Vegan", "Keto")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    dietOptions.forEach { option ->
+                        FilterChip(
+                            selected = diet == option,
+                            onClick = { diet = option },
+                            label = { Text(option, fontSize = 10.sp) }
+                        )
+                    }
+                }
+
+                Text("Cooking Skill", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                val skillOptions = listOf("Beginner", "Intermediate", "Expert")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    skillOptions.forEach { option ->
+                        FilterChip(
+                            selected = skill == option,
+                            onClick = { skill = option },
+                            label = { Text(option, fontSize = 10.sp) }
+                        )
+                    }
+                }
+
+                OutlinedTextField(value = budget, onValueChange = { budget = it }, label = { Text("Weekly Budget (TND)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = calories, onValueChange = { calories = it }, label = { Text("Daily Calorie Goal") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(name, email) }) { Text("Save") }
+            Button(
+                onClick = {
+                    val updatedProfile = profile?.copy(
+                        name = name,
+                        dietCategory = diet,
+                        cookingSkill = skill,
+                        weeklyBudget = budget.toDoubleOrNull() ?: 50.0,
+                        availableMinutesPerDay = calories.toIntOrNull() ?: 2000
+                    ) ?: com.example.nutrismart.domain.model.UserProfile(
+                        name = name,
+                        dietCategory = diet,
+                        cookingSkill = skill,
+                        weeklyBudget = budget.toDoubleOrNull() ?: 50.0,
+                        availableMinutesPerDay = calories.toIntOrNull() ?: 2000
+                    )
+                    onConfirm(updatedProfile)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+            ) { Text("Save") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

@@ -25,7 +25,7 @@ fun NutriSmartNavGraph(
         modifier = modifier
     ) {
         composable(Screen.Auth.route) {
-            AuthScreen(
+            EnhancedAuthScreen(
                 appViewModel = appViewModel,
                 onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
@@ -51,6 +51,7 @@ fun NutriSmartNavGraph(
             val viewModel: DailyIdeasViewModel = viewModel(factory = ViewModelFactory)
             DailyIdeasScreen(
                 viewModel = viewModel,
+                appViewModel = appViewModel,
                 onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) },
                 onBackClick = { navController.popBackStack() },
                 onNavigateToHome = { navController.navigate(Screen.Home.route) {
@@ -106,7 +107,7 @@ fun NutriSmartNavGraph(
 
         composable(Screen.ShoppingList.route) {
             val viewModel: ShoppingListViewModel = viewModel(factory = ViewModelFactory)
-            ShoppingListScreen(
+            EnhancedShoppingListScreen(
                 viewModel = viewModel,
                 appViewModel = appViewModel,
                 mealPlanId = "active_plan"

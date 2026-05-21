@@ -1,6 +1,6 @@
 package com.example.nutrismart.presentation.screens
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,38 +13,39 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
-
-data class UserHabits(
-    val dietType: String = "",
-    val allergies: List<String> = emptyList(),
-    val cookingLevel: String = "",
-    val budget: Double = 0.0,
-    val mealsPerDay: Int = 3,
-    val preferences: List<String> = emptyList()
-)
+import com.example.nutrismart.presentation.viewmodel.OnboardingViewModel
+import com.example.nutrismart.presentation.viewmodel.ViewModelFactory
 
 @Composable
 fun UserHabitsFormScreen(
     appViewModel: AppViewModel,
-    onComplete: (UserHabits) -> Unit
+    onComplete: (Map<String, String>) -> Unit
 ) {
-    var step by remember { mutableStateOf(1) }
-    var dietType by remember { mutableStateOf("") }
-    var allergies by remember { mutableStateOf(setOf<String>()) }
-    var cookingLevel by remember { mutableStateOf("") }
-    var budget by remember { mutableStateOf("") }
-    var mealsPerDay by remember { mutableStateOf("3") }
-    var preferences by remember { mutableStateOf(setOf<String>()) }
+    val onboardingViewModel: OnboardingViewModel = viewModel(factory = ViewModelFactory)
+    var currentStep by remember { mutableIntStateOf(1) }
+    val totalSteps = 4
 
-    val dietOptions = listOf("Vegetarian", "Vegan", "Balanced", "Keto", "Low Carb")
-    val allergyOptions = listOf("Nuts", "Dairy", "Gluten", "Eggs", "Shellfish", "Soy")
-    val cookingLevels = listOf("Beginner", "Intermediate", "Advanced")
-    val preferenceOptions = listOf("Organic", "Local", "Budget-friendly", "Quick meals", "Healthy")
+    // Form State
+    var dietCategory by remember { mutableStateOf("Balanced") }
+    var cookingSkill by remember { mutableStateOf("Beginner") }
+    var budget by remember { mutableStateOf("50") }
+    var maxTime by remember { mutableStateOf("30") }
+
+    if (onboardingViewModel.isComplete) {
+        LaunchedEffect(Unit) {
+            onComplete(mapOf("diet" to dietCategory))
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -54,324 +55,269 @@ fun UserHabitsFormScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .padding(24.dp)
         ) {
-            // Header with progress
-            Card(
+            // Header with Progress
+            OnboardingHeader(currentStep, totalSteps)
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Step Content
+            Box(modifier = Modifier.weight(1f)) {
+                when (currentStep) {
+                    1 -> DietSelectionStep(dietCategory) { dietCategory = it }
+                    2 -> CookingSkillStep(cookingSkill) { cookingSkill = it }
+                    3 -> BudgetStep(budget) { budget = it }
+                    4 -> TimeStep(maxTime) { maxTime = it }
+                }
+            }
+
+            // Navigation Buttons
+            OnboardingNavigation(
+                currentStep = currentStep,
+                totalSteps = totalSteps,
+                isLoading = onboardingViewModel.isLoading,
+                onBack = { if (currentStep > 1) currentStep-- },
+                onNext = {
+                    if (currentStep < totalSteps) {
+                        currentStep++
+                    } else {
+                        onboardingViewModel.completeOnboarding(
+                            name = appViewModel.userName,
+                            email = appViewModel.userEmail,
+                            dietCategory = dietCategory,
+                            cookingSkill = cookingSkill,
+                            budget = budget.toDoubleOrNull() ?: 50.0,
+                            maxTime = maxTime.toIntOrNull() ?: 30
+                        )
+                    }
+                }
+            )
+        }
+
+        if (onboardingViewModel.error != null) {
+            Snackbar(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF16A34A))
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+                action = {
+                    TextButton(onClick = { /* Clear error if needed */ }) {
+                        Text("Dismiss", color = Color.White)
+                    }
+                }
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Setup Your Profile",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = { step.toFloat() / 6f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
-                        color = Color.White,
-                        trackColor = Color.White.copy(alpha = 0.3f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Step $step of 6",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                }
-            }
-
-            // Content
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .animateContentSize(),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                when (step) {
-                    1 -> FormStep1DietType(dietOptions, dietType) { dietType = it }
-                    2 -> FormStep2Allergies(allergyOptions, allergies) { allergies = it }
-                    3 -> FormStep3CookingLevel(cookingLevels, cookingLevel) { cookingLevel = it }
-                    4 -> FormStep4Budget(budget) { budget = it }
-                    5 -> FormStep5Meals(mealsPerDay) { mealsPerDay = it }
-                    6 -> FormStep6Preferences(preferenceOptions, preferences) { preferences = it }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Navigation Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (step > 1) {
-                        OutlinedButton(
-                            onClick = { step-- },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Back")
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            if (step < 6) {
-                                step++
-                            } else {
-                                val habits = UserHabits(
-                                    dietType = dietType,
-                                    allergies = allergies.toList(),
-                                    cookingLevel = cookingLevel,
-                                    budget = budget.toDoubleOrNull() ?: 0.0,
-                                    mealsPerDay = mealsPerDay.toIntOrNull() ?: 3,
-                                    preferences = preferences.toList()
-                                )
-                                onComplete(habits)
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                    ) {
-                        Text(if (step < 6) "Next" else "Complete")
-                    }
-                }
+                Text(onboardingViewModel.error ?: "An error occurred")
             }
         }
     }
 }
 
 @Composable
-fun FormStep1DietType(options: List<String>, selected: String, onSelect: (String) -> Unit) {
-    FormStepContainer(
-        title = "What's your diet type?",
-        subtitle = "Choose your preferred dietary pattern"
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            options.forEach { option ->
-                SelectableCard(
-                    text = option,
-                    isSelected = selected == option,
-                    onClick = { onSelect(option) }
-                )
-            }
+fun OnboardingHeader(currentStep: Int, totalSteps: Int) {
+    Column {
+        Text(
+            text = "Step $currentStep of $totalSteps",
+            color = Color(0xFF16A34A),
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { currentStep.toFloat() / totalSteps },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            color = Color(0xFF16A34A),
+            trackColor = Color(0xFFE5E7EB)
+        )
+    }
+}
+
+@Composable
+fun DietSelectionStep(selected: String, onSelect: (String) -> Unit) {
+    Column {
+        Text("What's your diet preference?", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("We'll tailor your recipes based on this.", color = Color.Gray, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        val options = listOf(
+            OptionItem("Balanced", "Everything in moderation", Icons.Default.Restaurant),
+            OptionItem("Vegetarian", "No meat, but eggs & dairy okay", Icons.Default.Eco),
+            OptionItem("Vegan", "Plant-based only", Icons.Default.Park),
+            OptionItem("Keto", "High fat, low carb", Icons.Default.Fireplace)
+        )
+
+        options.forEach { option ->
+            SelectionCard(
+                title = option.title,
+                subtitle = option.subtitle,
+                icon = option.icon,
+                isSelected = selected == option.title,
+                onClick = { onSelect(option.title) }
+            )
         }
     }
 }
 
 @Composable
-fun FormStep2Allergies(options: List<String>, selected: Set<String>, onSelect: (Set<String>) -> Unit) {
-    FormStepContainer(
-        title = "Any allergies?",
-        subtitle = "Select all that apply (or skip if none)"
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            options.forEach { option ->
-                SelectableCheckbox(
-                    text = option,
-                    isSelected = option in selected,
-                    onClick = {
-                        val updated = selected.toMutableSet()
-                        if (option in updated) updated.remove(option) else updated.add(option)
-                        onSelect(updated)
-                    }
-                )
-            }
+fun CookingSkillStep(selected: String, onSelect: (String) -> Unit) {
+    Column {
+        Text("How's your cooking?", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Be honest! We have recipes for everyone.", color = Color.Gray, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        val options = listOf(
+            OptionItem("Beginner", "I'm just starting out", Icons.Default.Kitchen),
+            OptionItem("Intermediate", "I know my way around", Icons.Default.OutdoorGrill),
+            OptionItem("Expert", "I'm basically a chef", Icons.Default.Star)
+        )
+
+        options.forEach { option ->
+            SelectionCard(
+                title = option.title,
+                subtitle = option.subtitle,
+                icon = option.icon,
+                isSelected = selected == option.title,
+                onClick = { onSelect(option.title) }
+            )
         }
     }
 }
 
 @Composable
-fun FormStep3CookingLevel(options: List<String>, selected: String, onSelect: (String) -> Unit) {
-    FormStepContainer(
-        title = "What's your cooking skill?",
-        subtitle = "This helps us suggest appropriate recipes"
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            options.forEach { option ->
-                SelectableCard(
-                    text = option,
-                    isSelected = selected == option,
-                    onClick = { onSelect(option) }
-                )
-            }
-        }
-    }
-}
+fun BudgetStep(value: String, onValueChange: (String) -> Unit) {
+    Column {
+        Text("Weekly Budget (TND)", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Helps us find cost-effective meals.", color = Color.Gray, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(32.dp))
 
-@Composable
-fun FormStep4Budget(value: String, onValueChange: (String) -> Unit) {
-    FormStepContainer(
-        title = "Weekly Budget",
-        subtitle = "In Tunisian Dinars (TND)"
-    ) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            label = { Text("Budget (TND)") },
+            label = { Text("Amount in TND") },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.AccountBalanceWallet,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A)
-                )
-            }
+            leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF16A34A),
+                focusedLabelColor = Color(0xFF16A34A)
+            )
         )
     }
 }
 
 @Composable
-fun FormStep5Meals(value: String, onValueChange: (String) -> Unit) {
-    FormStepContainer(
-        title = "Meals per day",
-        subtitle = "How many meals do you typically eat?"
-    ) {
-        Row(
+fun TimeStep(value: String, onValueChange: (String) -> Unit) {
+    Column {
+        Text("Max Cooking Time", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("How long do you usually have for a meal?", color = Color.Gray, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text("Minutes") },
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (i in 1..5) {
-                SelectableCard(
-                    text = i.toString(),
-                    isSelected = value == i.toString(),
-                    onClick = { onValueChange(i.toString()) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
+            shape = RoundedCornerShape(12.dp),
+            leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF16A34A),
+                focusedLabelColor = Color(0xFF16A34A)
+            )
+        )
     }
 }
 
 @Composable
-fun FormStep6Preferences(options: List<String>, selected: Set<String>, onSelect: (Set<String>) -> Unit) {
-    FormStepContainer(
-        title = "Your preferences",
-        subtitle = "Select what matters to you"
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            options.forEach { option ->
-                SelectableCheckbox(
-                    text = option,
-                    isSelected = option in selected,
-                    onClick = {
-                        val updated = selected.toMutableSet()
-                        if (option in updated) updated.remove(option) else updated.add(option)
-                        onSelect(updated)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun FormStepContainer(
+fun SelectionCard(
     title: String,
     subtitle: String,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(
-            text = title,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF1A1C1E)
-        )
-        Text(
-            text = subtitle,
-            fontSize = 14.sp,
-            color = Color.Gray
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        content()
-    }
-}
-
-@Composable
-fun SelectableCard(
-    text: String,
+    icon: ImageVector,
     isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 8.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF16A34A) else Color.White
+            containerColor = if (isSelected) Color(0xFF16A34A).copy(alpha = 0.1f) else Color.White
         ),
-        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFE5E7EB))
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF16A34A)) else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(20.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color.White else Color(0xFF1A1C1E)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) Color(0xFF16A34A) else Color.Gray,
+                modifier = Modifier.size(32.dp)
             )
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color.White
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = if (isSelected) Color(0xFF16A34A) else Color.Black
                 )
+                Text(text = subtitle, color = Color.Gray, fontSize = 14.sp)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (isSelected) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A))
             }
         }
     }
 }
 
 @Composable
-fun SelectableCheckbox(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
+fun OnboardingNavigation(
+    currentStep: Int,
+    totalSteps: Int,
+    isLoading: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onClick() },
-            colors = CheckboxDefaults.colors(checkedColor = Color(0xFF16A34A))
-        )
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            color = Color(0xFF1A1C1E)
-        )
+        if (currentStep > 1) {
+            TextButton(onClick = onBack) {
+                Text("Back", color = Color.Gray)
+            }
+        } else {
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Button(
+            onClick = onNext,
+            modifier = Modifier
+                .height(56.dp)
+                .width(160.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text(if (currentStep == totalSteps) "Finish" else "Next")
+            }
+        }
     }
 }
+
+data class OptionItem(val title: String, val subtitle: String, val icon: ImageVector)

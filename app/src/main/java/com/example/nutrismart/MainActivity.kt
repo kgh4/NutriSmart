@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import com.example.nutrismart.presentation.navigation.NutriSmartNavGraph
+import com.example.nutrismart.presentation.navigation.SafeNutriSmartNavGraph
 import com.example.nutrismart.presentation.theme.NutriSmartTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
             NutriSmartTheme {
                 val navController = rememberNavController()
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    NutriSmartNavGraph(
+                    SafeNutriSmartNavGraph(
                         navController = navController,
                         modifier = Modifier.padding(innerPadding)
                     )

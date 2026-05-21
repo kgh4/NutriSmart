@@ -35,7 +35,7 @@ object RecipeImageMapper {
             "wl3" -> R.drawable.steamed_fish_and_rice
             "wl4" -> R.drawable.vegetable_stir_fry
             "wl5" -> R.drawable.protein_smoothie_bowl
-            else -> R.drawable.vegetable_soup
+            else -> if (id.startsWith("ai_")) R.drawable.mixed_protein_bowl else R.drawable.vegetable_soup
         }
     }
 }
