@@ -8,7 +8,6 @@ fun UserEntity.toDomainModel(): User {
         id = id,
         name = name,
         email = email,
-        password = password,
         dietCategory = dietCategory,
         budget = budget,
         maxTime = maxTime
@@ -20,7 +19,6 @@ fun User.toEntity(): UserEntity {
         id = id,
         name = name,
         email = email,
-        password = password,
         dietCategory = dietCategory,
         budget = budget,
         maxTime = maxTime

@@ -5,14 +5,12 @@ import com.example.nutrismart.domain.model.Favorite
 
 fun FavoriteEntity.toDomainModel(): Favorite {
     return Favorite(
-        recipeId = recipeId,
-        userId = userId
+        recipeId = recipeId
     )
 }
 
 fun Favorite.toEntity(): FavoriteEntity {
     return FavoriteEntity(
-        recipeId = recipeId,
-        userId = userId
+        recipeId = recipeId
     )
 }

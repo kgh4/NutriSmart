@@ -110,8 +110,7 @@ fun NutriSmartNavGraph(
             EnhancedShoppingListScreen(
                 viewModel = viewModel,
                 appViewModel = appViewModel,
-                mealPlanId = "active_plan",
-                onNavigateToPlanner = { navController.navigate(Screen.MealPlanner.route) }
+                mealPlanId = "active_plan"
             )
         }
 

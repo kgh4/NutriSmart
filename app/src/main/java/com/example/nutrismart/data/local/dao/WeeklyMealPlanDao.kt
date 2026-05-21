@@ -5,7 +5,7 @@ import com.example.nutrismart.data.local.entity.WeeklyMealPlanEntity
 
 @Dao
 interface WeeklyMealPlanDao {
-    @Query("SELECT * FROM weekly_meal_plans WHERE userId = :profileId LIMIT 1")
+    @Query("SELECT * FROM weekly_meal_plans WHERE profileId = :profileId LIMIT 1")
     suspend fun getWeeklyPlan(profileId: String): WeeklyMealPlanEntity?
 
     @Query("SELECT * FROM weekly_meal_plans WHERE id = :id")

@@ -29,22 +29,10 @@ class AIEngine {
         }
 
         val moodMatches = when (mood) {
-            MoodType.COMFORT -> filtered.filter { 
-                it.calories > 400 || 
-                it.ingredients.contains("cheese", ignoreCase = true) ||
-                it.ingredients.contains("harissa", ignoreCase = true) ||
-                it.ingredients.contains("merguez", ignoreCase = true) ||
-                it.ingredients.contains("couscous", ignoreCase = true)
-            }
+            MoodType.COMFORT -> filtered.filter { it.calories > 400 || it.ingredients.contains("cheese", ignoreCase = true) }
             MoodType.ENERGETIC -> filtered.filter { it.calories in 300..600 }
             MoodType.LIGHT -> filtered.filter { it.calories < 350 }
-            MoodType.FOCUS -> filtered.filter { 
-                it.ingredients.contains("fish", ignoreCase = true) || 
-                it.ingredients.contains("tuna", ignoreCase = true) ||
-                it.ingredients.contains("nuts", ignoreCase = true) || 
-                it.ingredients.contains("olive oil", ignoreCase = true) ||
-                it.calories < 500 
-            }
+            MoodType.FOCUS -> filtered.filter { it.ingredients.contains("fish", ignoreCase = true) || it.ingredients.contains("nuts", ignoreCase = true) || it.calories < 500 }
             MoodType.QUICK -> filtered.filter { it.time <= 20 }
             MoodType.SURPRISE -> filtered.shuffled()
         }.shuffled().take(6)
@@ -110,8 +98,12 @@ class AIEngine {
     ): List<Recipe> {
         val filtered = generateWeeklyRecipes(recipes, dietCategory, maxTime, budget)
 
-        // Ensure we always return a varied set by shuffling
-        return filtered.shuffled().take(6)
+        // Return 4-6 random recipes
+        return if (filtered.size <= 6) {
+            filtered
+        } else {
+            filtered.shuffled().take(Random.nextInt(4, 7))
+        }
     }
 
     /**

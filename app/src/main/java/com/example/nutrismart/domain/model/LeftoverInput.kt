@@ -2,9 +2,8 @@ package com.example.nutrismart.domain.model
 
 import java.time.LocalDateTime
 
-data class ShoppingList(
+data class LeftoverInput(
     val id: String = "",
-    val mealPlanId: String = "",
-    val items: List<ShoppingItem> = emptyList(),
+    val rawText: String = "",
     val createdAt: LocalDateTime = LocalDateTime.now()
 )

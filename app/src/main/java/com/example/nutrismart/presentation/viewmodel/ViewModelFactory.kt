@@ -53,7 +53,7 @@ object ViewModelFactory : ViewModelProvider.Factory {
                 LeftoverRecipesViewModel() as T
             }
             modelClass.isAssignableFrom(ShoppingListViewModel::class.java) -> {
-                ShoppingListViewModel(container.shoppingListRepository, container.generateShoppingListUseCase) as T
+                ShoppingListViewModel(container.dayMealPlanRepository, container.recipeRepository) as T
             }
             modelClass.isAssignableFrom(RecipeDetailsViewModel::class.java) -> {
                 RecipeDetailsViewModel() as T

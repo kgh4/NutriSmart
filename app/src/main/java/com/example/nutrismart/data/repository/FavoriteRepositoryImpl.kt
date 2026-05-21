@@ -10,20 +10,20 @@ class FavoriteRepositoryImpl(
     private val favoriteDao: FavoriteDao
 ) : FavoriteRepository {
 
-    override suspend fun getFavorite(recipeId: String, userId: String): Favorite? {
-        return favoriteDao.getFavorite(recipeId, userId)?.toDomainModel()
+    override suspend fun getFavorite(recipeId: String): Favorite? {
+        return favoriteDao.getFavorite(recipeId)?.toDomainModel()
     }
 
-    override suspend fun getAllFavorites(userId: String): List<Favorite> {
-        return favoriteDao.getAllFavorites(userId).map { it.toDomainModel() }
+    override suspend fun getAllFavorites(): List<Favorite> {
+        return favoriteDao.getAllFavorites().map { it.toDomainModel() }
     }
 
     override suspend fun saveFavorite(favorite: Favorite) {
         favoriteDao.insert(favorite.toEntity())
     }
 
-    override suspend fun deleteFavorite(recipeId: String, userId: String) {
-        favoriteDao.deleteById(recipeId, userId)
+    override suspend fun deleteFavorite(recipeId: String) {
+        favoriteDao.deleteById(recipeId)
     }
 }
 

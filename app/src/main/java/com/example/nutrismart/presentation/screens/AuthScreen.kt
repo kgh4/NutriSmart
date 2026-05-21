@@ -91,9 +91,9 @@ fun EnhancedAuthScreen(
             Button(
                 onClick = {
                     if (isSignIn) {
-                        appViewModel.signIn(email, password)
+                        appViewModel.signIn(email)
                     } else {
-                        appViewModel.signUp(name, email, "Balanced", password)
+                        appViewModel.signUp(name, email, "Balanced")
                     }
                 },
                 modifier = Modifier

@@ -8,8 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.data.datasource.TunisianProductDataSource
 import com.example.nutrismart.domain.model.Product
 import com.example.nutrismart.domain.model.ShoppingItem
-import com.example.nutrismart.domain.repository.ShoppingListRepository
-import com.example.nutrismart.domain.usecase.shoppinglist.GenerateShoppingListUseCase
+import com.example.nutrismart.domain.repository.DayMealPlanRepository
+import com.example.nutrismart.domain.repository.RecipeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,13 +22,12 @@ data class ShoppingListUiState(
     val items: List<ShoppingItem> = emptyList(),
     val error: String? = null,
     val searchResults: List<Product> = emptyList(),
-    val selectedProduct: Product? = null,
-    val listId: String = ""
+    val selectedProduct: Product? = null
 )
 
 class ShoppingListViewModel(
-    private val shoppingListRepository: ShoppingListRepository,
-    private val generateShoppingListUseCase: GenerateShoppingListUseCase
+    private val dayMealPlanRepository: DayMealPlanRepository,
+    private val recipeRepository: RecipeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ShoppingListUiState())
@@ -41,36 +40,45 @@ class ShoppingListViewModel(
         private set
 
     /**
-     * Load shopping list from repository or generate a new one from the active plan
+     * Load shopping list by fetching selected plan and its recipes from DB
      */
-    fun loadShoppingList(mealPlanId: String = "active_plan") {
+    fun loadShoppingList() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             
             try {
-                // Try to get existing list
-                var list = shoppingListRepository.getShoppingList(mealPlanId)
+                val plan = dayMealPlanRepository.getMealPlan(1)
                 
-                // If no list exists, generate one from the plan
-                if (list == null) {
-                    val result = generateShoppingListUseCase(mealPlanId)
-                    if (result.isSuccess) {
-                        list = result.getOrNull()
-                    } else {
-                        _uiState.update { 
-                            it.copy(error = result.exceptionOrNull()?.message ?: "Error", isLoading = false) 
-                        }
-                        return@launch
+                if (plan == null) {
+                    _uiState.update { 
+                        it.copy(error = "No plan selected. Go to Weekly Planner and click 'Use This Day Plan'.", isLoading = false) 
                     }
+                    return@launch
                 }
 
-                _uiState.update { 
-                    it.copy(
-                        items = list?.items ?: emptyList(), 
-                        listId = list?.id ?: "",
-                        isLoading = false 
-                    ) 
+                val recipeIds = listOf(plan.breakfastId, plan.lunchId, plan.dinnerId, plan.snackId)
+                    .filter { it.isNotBlank() }
+                
+                val recipes = recipeIds.mapNotNull { id ->
+                    recipeRepository.getRecipeById(id)
                 }
+
+                val ingredients = recipes.flatMap { it.ingredients.split("\n") }
+                    .filter { it.isNotBlank() }
+                
+                val grouped = ingredients.groupingBy { it.trim() }.eachCount()
+
+                val shoppingItems = grouped.map { (name, count) ->
+                    ShoppingItem(
+                        id = UUID.randomUUID().toString(),
+                        name = name,
+                        quantity = if (count > 1) "$count" else "",
+                        checked = false,
+                        category = detectCategory(name)
+                    )
+                }
+
+                _uiState.update { it.copy(items = shoppingItems, isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
             }
@@ -110,10 +118,7 @@ class ShoppingListViewModel(
             checked = false,
             category = product.category
         )
-        
-        val updatedItems = listOf(newItem) + uiState.value.items
-        _uiState.update { it.copy(items = updatedItems, selectedProduct = null) }
-        saveList()
+        _uiState.update { it.copy(items = listOf(newItem) + it.items, selectedProduct = null) }
     }
 
     fun toggleItem(itemId: String, onPurchaseConfirmed: (Double) -> Unit = {}) {
@@ -129,25 +134,20 @@ class ShoppingListViewModel(
             }
             state.copy(items = updatedItems)
         }
-        saveList()
     }
 
     fun removeItem(itemId: String) {
         _uiState.update { it.copy(items = it.items.filter { it.id != itemId }) }
-        saveList()
     }
 
-    private fun saveList() {
-        viewModelScope.launch {
-            val state = uiState.value
-            val list = com.example.nutrismart.domain.model.ShoppingList(
-                id = state.listId.ifBlank { UUID.randomUUID().toString() },
-                mealPlanId = "active_plan",
-                items = state.items,
-                createdAt = java.time.LocalDateTime.now()
-            )
-            shoppingListRepository.saveShoppingList(list)
+    private fun detectCategory(name: String): String {
+        val lower = name.lowercase()
+        return when {
+            listOf("tomato", "onion", "garlic", "carrot", "broccoli", "spinach", "potato", "pepper", "avocado", "cucumber", "lettuce", "veggie").any { lower.contains(it) } -> "Produce"
+            listOf("chicken", "beef", "pork", "fish", "egg", "tofu", "turkey", "salmon", "tuna").any { lower.contains(it) } -> "Proteins"
+            listOf("milk", "cheese", "butter", "yogurt", "cream", "feta").any { lower.contains(it) } -> "Dairy"
+            listOf("rice", "pasta", "bread", "flour", "quinoa", "oats", "tortilla").any { lower.contains(it) } -> "Grains/Pantry"
+            else -> "Other"
         }
     }
 }
-

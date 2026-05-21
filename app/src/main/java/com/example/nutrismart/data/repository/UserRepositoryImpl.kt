@@ -18,10 +18,6 @@ class UserRepositoryImpl(
         return userDao.getUserByEmail(email)?.toDomainModel()
     }
 
-    override suspend fun signIn(email: String, password: String): User? {
-        return userDao.signIn(email, password)?.toDomainModel()
-    }
-
     override suspend fun getUserProfile(): User? {
         return userDao.getUserProfile()?.toDomainModel()
     }

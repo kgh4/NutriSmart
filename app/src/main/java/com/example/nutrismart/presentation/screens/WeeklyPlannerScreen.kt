@@ -64,19 +64,6 @@ fun WeeklyPlannerScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                },
-                actions = {
-                    uiState.mealPlan?.let { plan ->
-                        TextButton(
-                            onClick = { appViewModel.selectWeeklyPlan(plan) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF16A34A))
-                        ) {
-                            Text(
-                                if (appViewModel.selectedWeeklyPlan == plan) "Plan Selected" else "Select Plan",
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
             )
         },

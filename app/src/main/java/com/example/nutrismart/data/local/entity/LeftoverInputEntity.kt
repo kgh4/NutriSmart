@@ -3,10 +3,9 @@ package com.example.nutrismart.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "shopping_lists")
-data class ShoppingListEntity(
+@Entity(tableName = "leftover_inputs")
+data class LeftoverInputEntity(
     @PrimaryKey val id: String,
-    val mealPlanId: String,
-    val itemsJson: String,
+    val rawText: String,
     val createdAt: String
 )
