@@ -298,38 +298,6 @@ Open the project folder in Android Studio.
 
 ---
 
-# 📱 Screenshots
-
-## Authentication Screen
-
-![Auth Screen](screenshots/auth_screen.png)
-
----
-
-## Home Screen
-
-![Home Screen](screenshots/home_screen.png)
-
----
-
-## Recipe Details
-
-![Recipe Details](screenshots/recipe_details.png)
-
----
-
-## Weekly Planner
-
-![Weekly Planner](screenshots/weekly_planner.png)
-
----
-
-## Leftover Finder
-
-![Leftover Finder](screenshots/leftover_screen.png)
-
----
-
 # 📊 Planned Improvements
 
 - Hilt Dependency Injection
@@ -358,11 +326,9 @@ Open the project folder in Android Studio.
 # 👨‍💻 Authors
 
 NutriSmart Development Team
-
-Academic Year 2024–2025
+Koussay Ghanmi
+Rana Ben Fraj
+Academic Year 2025–2026
 
 ---
 
-# 📄 License
-
-This project is for educational and academic purposes.
