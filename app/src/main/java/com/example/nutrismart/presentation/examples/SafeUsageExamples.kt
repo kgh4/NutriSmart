@@ -11,6 +11,10 @@ import androidx.compose.ui.unit.dp
 import com.example.nutrismart.domain.model.Recipe
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
 import com.example.nutrismart.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "SafeUsageExamples"
 
@@ -94,16 +98,17 @@ fun SafeRecipeList(recipes: List<Recipe>) {
 // ============================================================================
 
 fun SafeLoadData(appViewModel: AppViewModel, onError: (String) -> Unit) {
-    // ❌ WRONG - No error handling:
-    // appViewModel.loadRecipes() // If crashes, no one knows
-
-    // ✅ CORRECT - With try-catch:
-    try {
-        appViewModel.loadRecipes()
-        Log.d(TAG, "Recipes loaded successfully")
-    } catch (e: Exception) {
-        Log.e(TAG, "Failed to load recipes: ${e.message}", e)
-        onError("Failed to load recipes")
+    // ✅ CORRECT - Launch a coroutine and handle errors safely
+    CoroutineScope(Dispatchers.Main).launch {
+        try {
+            withContext(Dispatchers.IO) {
+                appViewModel.loadRecipes()
+            }
+            Log.d(TAG, "Recipes loaded successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load recipes: ${e.message}", e)
+            onError("Failed to load recipes")
+        }
     }
 }
 

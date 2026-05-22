@@ -1,17 +1,8 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
-}
-
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) {
-        load(file.inputStream())
-    }
 }
 
 android {
@@ -26,11 +17,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Cerebras Configuration
-        buildConfigField("String", "CEREBRAS_API_KEY", "\"${localProperties.getProperty("CEREBRAS_API_KEY") ?: ""}\"")
-        buildConfigField("String", "CEREBRAS_BASE_URL", "\"${localProperties.getProperty("CEREBRAS_BASE_URL") ?: "https://api.cerebras.ai/v1/"}\"")
-        buildConfigField("String", "CEREBRAS_MODEL", "\"${localProperties.getProperty("CEREBRAS_MODEL") ?: "llama3.1-8b"}\"")
     }
 
     buildTypes {
@@ -67,17 +53,22 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.core.splashscreen)
 
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    // Networking & Serialization
+    // AI
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.vertexai)
+    implementation(libs.kotlinx.serialization.json)
+
+    // Retrofit & OkHttp (for Cerebras)
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlin.serialization)
     implementation(libs.okhttp.logging)
-    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
