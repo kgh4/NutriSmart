@@ -111,7 +111,7 @@ fun DailyIdeasScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = Color(0xFF16A34A))
                             Spacer(Modifier.height(8.dp))
-                            Text("Gemini is cooking up ideas...", color = Color.Gray, fontSize = 14.sp)
+                            Text("Cerebras is cooking up ideas...", color = Color.Gray, fontSize = 14.sp)
                         }
                     }
                 }

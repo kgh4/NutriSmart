@@ -24,7 +24,7 @@ class AIEngine {
         budget: String
     ): List<DailyIdea> {
         val filtered = recipes.filter { recipe ->
-            recipe.dietCategory.equals(dietCategory, ignoreCase = true) &&
+            (dietCategory.equals("Balanced", ignoreCase = true) || recipe.dietCategory.equals(dietCategory, ignoreCase = true)) &&
             isBudgetMatching(recipe.budget, budget)
         }
 
@@ -73,7 +73,7 @@ class AIEngine {
         return recipes
             .filter { recipe ->
                 // Filter by diet category
-                recipe.dietCategory.equals(dietCategory, ignoreCase = true) &&
+                (dietCategory.equals("Balanced", ignoreCase = true) || recipe.dietCategory.equals(dietCategory, ignoreCase = true)) &&
                 // Filter by time
                 recipe.time <= maxTime &&
                 // Filter by budget
@@ -195,7 +195,7 @@ class AIEngine {
         var score = 0f
 
         // Diet match: 40 points
-        if (recipe.dietCategory.equals(userDietCategory, ignoreCase = true)) {
+        if (userDietCategory.equals("Balanced", ignoreCase = true) || recipe.dietCategory.equals(userDietCategory, ignoreCase = true)) {
             score += 40f
         }
 

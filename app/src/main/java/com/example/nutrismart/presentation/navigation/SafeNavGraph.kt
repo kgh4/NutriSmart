@@ -162,8 +162,17 @@ fun SafeNutriSmartNavGraph(
         }
 
         composable(Screen.LeftoverRemix.route) {
-            // Using the IMPROVED version of Leftover Remix
-            ImprovedLeftoverRemixScreen()
+            val leftoverViewModel: LeftoverRecipesViewModel = viewModel(factory = ViewModelFactory)
+            LeftoverRecipesScreen(
+                viewModel = leftoverViewModel,
+                appViewModel = appViewModel,
+                onRecipeClick = { id ->
+                    if (id.isNotBlank()) {
+                        navController.navigate(Screen.RecipeDetails.createRoute(id))
+                    }
+                },
+                onBackClick = { navController.popBackStack() }
+            )
         }
 
         composable(Screen.ShoppingList.route) {

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.domain.model.DailyIdea
 import com.example.nutrismart.domain.model.MoodType
 import com.example.nutrismart.domain.model.User
-import com.example.nutrismart.domain.repository.RecipeRepository
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateAiDailyIdeasUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +19,6 @@ data class DailyIdeasUiState(
 )
 
 class DailyIdeasViewModel(
-    private val recipeRepository: RecipeRepository,
     private val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase
 ) : ViewModel() {
 
@@ -30,11 +28,18 @@ class DailyIdeasViewModel(
     fun generateDailyIdeas(mood: MoodType, user: User?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            try {
-                val moodIdeas = generateAiDailyIdeasUseCase(mood, user)
-                _uiState.update { it.copy(ideas = moodIdeas, isLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message, isLoading = false) }
+            
+            val result = generateAiDailyIdeasUseCase(mood, user)
+            
+            if (result.isSuccess) {
+                _uiState.update { it.copy(ideas = result.getOrThrow(), isLoading = false) }
+            } else {
+                _uiState.update { 
+                    it.copy(
+                        error = result.exceptionOrNull()?.message ?: "Failed to load ideas", 
+                        isLoading = false 
+                    ) 
+                }
             }
         }
     }

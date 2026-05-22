@@ -27,11 +27,13 @@ import com.example.nutrismart.presentation.viewmodel.LeftoverRecipesViewModel
 @Composable
 fun LeftoverRecipesScreen(
     viewModel: LeftoverRecipesViewModel,
+    appViewModel: com.example.nutrismart.presentation.viewmodel.AppViewModel,
     onRecipeClick: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedIngredients = viewModel.selectedIngredients
+    val currentUser by appViewModel.currentUser.collectAsState()
 
     Scaffold(
         topBar = {
@@ -157,7 +159,7 @@ fun LeftoverRecipesScreen(
             // 5. GENERATE BUTTON
             item {
                 Button(
-                    onClick = { viewModel.generateRecipeIdeas() },
+                    onClick = { viewModel.generateRecipeIdeas(currentUser) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -187,13 +189,28 @@ fun LeftoverRecipesScreen(
             // 6. RESULTS SECTION
             if (uiState.isLoading) {
                 item {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF8E44AD))
+                    Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color(0xFF8E44AD))
+                            Spacer(Modifier.height(8.dp))
+                            Text("Cerebras is remixing...", color = Color.Gray, fontSize = 14.sp)
+                        }
                     }
                 }
             } else if (uiState.error != null) {
                 item {
-                    Text(text = uiState.error!!, color = Color.Red, modifier = Modifier.padding(vertical = 8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = uiState.error!!,
+                            color = Color(0xFFB91C1C),
+                            modifier = Modifier.padding(16.dp),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             } else {
                 items(uiState.recipes) { recipe ->

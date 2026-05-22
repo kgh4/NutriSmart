@@ -2,12 +2,15 @@ package com.example.nutrismart.presentation.viewmodel
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
-import com.example.nutrismart.domain.generator.DietRecipeProvider
+import androidx.lifecycle.viewModelScope
 import com.example.nutrismart.domain.model.Recipe
+import com.example.nutrismart.domain.model.User
+import com.example.nutrismart.domain.usecase.leftovers.GenerateLeftoverAiRecipesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 data class LeftoverRecipesUiState(
     val isLoading: Boolean = false,
@@ -17,7 +20,7 @@ data class LeftoverRecipesUiState(
 )
 
 class LeftoverRecipesViewModel(
-    private val dietRecipeProvider: DietRecipeProvider = DietRecipeProvider()
+    private val generateLeftoverAiRecipesUseCase: GenerateLeftoverAiRecipesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LeftoverRecipesUiState())
@@ -42,46 +45,31 @@ class LeftoverRecipesViewModel(
         _selectedIngredients.remove(ingredient)
     }
 
-    fun generateRecipeIdeas() {
+    fun generateRecipeIdeas(user: User? = null) {
         if (_selectedIngredients.isEmpty()) {
             _uiState.update { it.copy(error = "Please add some ingredients first", recipes = emptyList()) }
             return
         }
 
-        _uiState.update { it.copy(isLoading = true, error = null) }
-        
-        try {
-            // Get all recipes to filter locally
-            val allRecipes = dietRecipeProvider.getRecipes("All")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
             
-            val filtered = allRecipes.filter { recipe ->
-                _selectedIngredients.any { ingredient ->
-                    recipe.ingredients.lowercase().contains(ingredient.lowercase())
-                }
-            }
-
-            if (filtered.isEmpty()) {
+            val result = generateLeftoverAiRecipesUseCase(_selectedIngredients, user)
+            
+            if (result.isSuccess) {
                 _uiState.update { 
                     it.copy(
-                        recipes = emptyList(), 
-                        isLoading = false,
-                        error = "No recipes found, try different ingredients"
+                        recipes = result.getOrThrow(),
+                        isLoading = false
                     )
                 }
             } else {
                 _uiState.update {
                     it.copy(
-                        recipes = filtered,
+                        error = result.exceptionOrNull()?.message ?: "Failed to generate recipes",
                         isLoading = false
                     )
                 }
-            }
-        } catch (e: Exception) {
-            _uiState.update {
-                it.copy(
-                    error = e.message ?: "Failed to find recipes",
-                    isLoading = false
-                )
             }
         }
     }

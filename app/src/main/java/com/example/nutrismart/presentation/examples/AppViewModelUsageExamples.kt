@@ -14,11 +14,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.nutrismart.domain.model.Recipe
 import com.example.nutrismart.presentation.viewmodel.AppViewModel
+import kotlinx.coroutines.launch
 
 /**
  * Example: Recipe Card with Favorite Button
@@ -60,6 +62,7 @@ fun RecipesScreenExample(
     val allRecipes = viewModel.allRecipes.collectAsState()
     val currentUser = viewModel.currentUser.collectAsState()
     val isLoading = viewModel.isLoading
+    val scope = rememberCoroutineScope()
 
     Box(modifier = modifier.fillMaxSize()) {
         if (isLoading) {
@@ -73,7 +76,7 @@ fun RecipesScreenExample(
                 }
 
                 // Load recipes button
-                Button(onClick = { viewModel.loadRecipes() }) {
+                Button(onClick = { scope.launch { viewModel.loadRecipes() } }) {
                     Text("Load Recipes")
                 }
 

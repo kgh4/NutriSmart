@@ -19,7 +19,9 @@ object ViewModelFactory : ViewModelProvider.Factory {
             modelClass.isAssignableFrom(AppViewModel::class.java) -> {
                 if (appViewModel == null) {
                     appViewModel = AppViewModel(
+                        application = application,
                         userRepository = container.userRepository,
+                        userProfileRepository = container.userProfileRepository,
                         recipeRepository = container.recipeRepository,
                         favoriteRepository = container.favoriteRepository,
                         dayMealPlanRepository = container.dayMealPlanRepository
@@ -47,10 +49,10 @@ object ViewModelFactory : ViewModelProvider.Factory {
                 onboardingViewModel as T
             }
             modelClass.isAssignableFrom(DailyIdeasViewModel::class.java) -> {
-                DailyIdeasViewModel(container.recipeRepository, container.generateAiDailyIdeasUseCase) as T
+                DailyIdeasViewModel(container.generateAiDailyIdeasUseCase) as T
             }
             modelClass.isAssignableFrom(LeftoverRecipesViewModel::class.java) -> {
-                LeftoverRecipesViewModel() as T
+                LeftoverRecipesViewModel(container.generateLeftoverAiRecipesUseCase) as T
             }
             modelClass.isAssignableFrom(ShoppingListViewModel::class.java) -> {
                 ShoppingListViewModel(container.dayMealPlanRepository, container.recipeRepository) as T

@@ -13,25 +13,26 @@ interface AiRecipeGenerator {
 }
 
 data class AiGeneratedRecipe(
-    val name: String,
-    val shortDescription: String,
+    val title: String,
+    val description: String,
     val ingredients: List<String>,
     val steps: List<String>,
-    val prepMinutes: Int,
-    val estimatedBudget: String,
-    val moodTag: String,
-    val whyThisFitsYou: String
+    val estimatedTime: Int,
+    val budgetLevel: String,
+    val calories: Int,
+    val whyThisFitsYou: String = ""
 )
 
 fun AiGeneratedRecipe.toRecipe(): Recipe {
     return Recipe(
-        id = "ai_${System.currentTimeMillis()}",
-        title = name,
-        description = whyThisFitsYou,
+        id = "ai_${System.currentTimeMillis()}_${title.hashCode()}",
+        title = title,
+        description = description,
         ingredients = ingredients.joinToString("\n"),
         steps = steps.joinToString("\n"),
-        time = prepMinutes,
-        budget = estimatedBudget,
+        time = estimatedTime,
+        budget = budgetLevel,
+        calories = calories,
         dietCategory = "AI Generated"
     )
 }

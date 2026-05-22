@@ -17,6 +17,7 @@ import com.example.nutrismart.domain.model.User
 import com.example.nutrismart.domain.repository.DayMealPlanRepository
 import com.example.nutrismart.domain.repository.FavoriteRepository
 import com.example.nutrismart.domain.repository.RecipeRepository
+import com.example.nutrismart.domain.repository.UserProfileRepository
 import com.example.nutrismart.domain.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +36,9 @@ import kotlinx.coroutines.launch
  * ✅ Comprehensive logging for debugging
  */
 class AppViewModel(
+    private val application: android.app.Application,
     private val userRepository: UserRepository,
+    private val userProfileRepository: UserProfileRepository,
     private val recipeRepository: RecipeRepository,
     private val favoriteRepository: FavoriteRepository,
     private val dayMealPlanRepository: DayMealPlanRepository
@@ -122,41 +125,45 @@ class AppViewModel(
     /**
      * Safe recipe loading with empty list fallback
      */
-    fun loadRecipes() {
-        viewModelScope.launch {
-            try {
-                val recipes = recipeRepository.getAllRecipes()
-                    ?: emptyList() // Safe fallback
-                _allRecipes.value = recipes.filterNotNull() // Remove any null entries
-                Log.d(TAG, "Loaded ${recipes.size} recipes")
-            } catch (e: Exception) {
-                handleError("Error loading recipes", e)
-                // Keep existing recipes on error
-            }
+    suspend fun loadRecipes() {
+        try {
+            val recipes = recipeRepository.getAllRecipes()
+                ?: emptyList() // Safe fallback
+            _allRecipes.value = recipes.filterNotNull() // Remove any null entries
+            Log.d(TAG, "Loaded ${recipes.size} recipes")
+        } catch (e: Exception) {
+            handleError("Error loading recipes", e)
+            // Keep existing recipes on error
         }
     }
 
     /**
      * Safe user profile loading
      */
-    fun loadUser() {
-        viewModelScope.launch {
-            try {
-                val user = userRepository.getUserProfile()
+    suspend fun loadUser() {
+        try {
+            val sharedPref = application.getSharedPreferences("NutriSmartSession", android.content.Context.MODE_PRIVATE)
+            val loggedInEmail = sharedPref.getString("logged_in_email", null)
+            Log.d(TAG, "loadUser called. SharedPreferences logged_in_email: $loggedInEmail")
+            if (loggedInEmail != null) {
+                val user = userRepository.getUserByEmail(loggedInEmail)
                 if (user != null) {
                     _currentUser.value = user
                     // Safe name assignment
                     userName = user.name.takeIf { it.isNotBlank() } ?: DEFAULT_USER_NAME
                     userEmail = user.email.takeIf { it.isNotBlank() } ?: DEFAULT_USER_EMAIL
-                    Log.d(TAG, "User loaded: ${user.name}")
+                    Log.d(TAG, "User loaded and session restored: ${user.name} (${user.email})")
                 } else {
-                    Log.d(TAG, "No user profile found")
+                    Log.d(TAG, "Session email exists but user not found in DB: $loggedInEmail")
                     setDefaultUser()
                 }
-            } catch (e: Exception) {
-                handleError("Error loading user", e)
+            } else {
+                Log.d(TAG, "No active session in SharedPreferences")
                 setDefaultUser()
             }
+        } catch (e: Exception) {
+            handleError("Error loading user", e)
+            setDefaultUser()
         }
     }
 
@@ -176,11 +183,14 @@ class AppViewModel(
         viewModelScope.launch {
             try {
                 // Validate inputs
-                val safeName = name.takeIf { it.isNotBlank() } ?: run {
+                val trimmedName = name.trim()
+                val trimmedEmail = email.trim().lowercase()
+                
+                val safeName = trimmedName.takeIf { it.isNotBlank() } ?: run {
                     setError("Name cannot be empty")
                     return@launch
                 }
-                val safeEmail = email.takeIf { it.isNotBlank() } ?: run {
+                val safeEmail = trimmedEmail.takeIf { it.isNotBlank() } ?: run {
                     setError("Email cannot be empty")
                     return@launch
                 }
@@ -195,6 +205,12 @@ class AppViewModel(
 
                 saveUser(newUser)
                 _currentUser.value = newUser
+                userName = safeName
+                userEmail = safeEmail
+                
+                val sharedPref = application.getSharedPreferences("NutriSmartSession", android.content.Context.MODE_PRIVATE)
+                sharedPref.edit().putString("logged_in_email", safeEmail).apply()
+                
                 Log.d(TAG, "Sign up successful for: $safeName")
             } catch (e: Exception) {
                 handleError("Sign up failed", e)
@@ -208,7 +224,8 @@ class AppViewModel(
     fun signIn(email: String) {
         viewModelScope.launch {
             try {
-                val safeEmail = email.takeIf { it.isNotBlank() } ?: run {
+                val trimmedEmail = email.trim().lowercase()
+                val safeEmail = trimmedEmail.takeIf { it.isNotBlank() } ?: run {
                     setError("Email cannot be empty")
                     return@launch
                 }
@@ -218,8 +235,25 @@ class AppViewModel(
                     _currentUser.value = user
                     userName = user.name.takeIf { it.isNotBlank() } ?: DEFAULT_USER_NAME
                     userEmail = user.email.takeIf { it.isNotBlank() } ?: DEFAULT_USER_EMAIL
+                    
+                    // CRITICAL FIX: Persist as the main profile so loadUser() finds it on next start
+                    userRepository.saveUser(user)
+                    
+                    // Update UserProfile as well for consistency across repositories
+                    val userProfile = com.example.nutrismart.domain.model.UserProfile(
+                        id = user.id,
+                        name = user.name,
+                        dietCategory = user.dietCategory,
+                        availableMinutesPerDay = user.maxTime,
+                        weeklyBudget = user.budget.toDouble()
+                    )
+                    userProfileRepository.saveUserProfile(userProfile)
+
+                    val sharedPref = application.getSharedPreferences("NutriSmartSession", android.content.Context.MODE_PRIVATE)
+                    sharedPref.edit().putString("logged_in_email", safeEmail).apply()
+
                     clearError()
-                    Log.d(TAG, "Sign in successful")
+                    Log.d(TAG, "Sign in successful for $safeEmail")
                 } else {
                     setError("User not found")
                     Log.w(TAG, "User not found with email: $safeEmail")
@@ -236,6 +270,9 @@ class AppViewModel(
     fun signOut() {
         viewModelScope.launch {
             try {
+                val sharedPref = application.getSharedPreferences("NutriSmartSession", android.content.Context.MODE_PRIVATE)
+                sharedPref.edit().remove("logged_in_email").apply()
+
                 _currentUser.value = null
                 setDefaultUser()
                 selectedDayPlan = null
@@ -269,23 +306,32 @@ class AppViewModel(
             }
         }
     }
-    fun saveUser(user: User) {
-        viewModelScope.launch {
-            try {
-                if (user.name.isBlank()) {
-                    setError("User name cannot be empty")
-                    return@launch
-                }
-
-                userRepository.saveUser(user)
-                _currentUser.value = user
-                userName = user.name
-                userEmail = user.email
-                clearError()
-                Log.d(TAG, "User saved successfully")
-            } catch (e: Exception) {
-                handleError("Error saving user", e)
+    suspend fun saveUser(user: User) {
+        try {
+            if (user.name.isBlank()) {
+                setError("User name cannot be empty")
+                return
             }
+
+            userRepository.saveUser(user)
+            
+            // Keep UserProfile in sync
+            val userProfile = com.example.nutrismart.domain.model.UserProfile(
+                id = user.id,
+                name = user.name,
+                dietCategory = user.dietCategory,
+                availableMinutesPerDay = user.maxTime,
+                weeklyBudget = user.budget.toDouble()
+            )
+            userProfileRepository.saveUserProfile(userProfile)
+
+            _currentUser.value = user
+            userName = user.name
+            userEmail = user.email
+            clearError()
+            Log.d(TAG, "User saved successfully")
+        } catch (e: Exception) {
+            handleError("Error saving user", e)
         }
     }
 
@@ -319,25 +365,23 @@ class AppViewModel(
     /**
      * Safe favorites loading with join operation
      */
-    fun loadFavorites() {
-        viewModelScope.launch {
-            try {
-                val favorites = recipeRepository.getFavoriteRecipes() ?: emptyList()
+    suspend fun loadFavorites() {
+        try {
+            val favorites = recipeRepository.getFavoriteRecipes() ?: emptyList()
 
-                savedRecipes.clear()
-                savedRecipes.addAll(favorites.filterNotNull())
+            savedRecipes.clear()
+            savedRecipes.addAll(favorites.filterNotNull())
 
-                _favoriteRecipeIds.value = favorites
-                    .filterNotNull()
-                    .map { it.id }
-                    .filter { it.isNotBlank() }
-                    .toSet()
+            _favoriteRecipeIds.value = favorites
+                .filterNotNull()
+                .map { it.id }
+                .filter { it.isNotBlank() }
+                .toSet()
 
-                Log.d(TAG, "Loaded ${savedRecipes.size} favorite recipes")
-            } catch (e: Exception) {
-                handleError("Error loading favorites", e)
-                // Keep existing favorites on error
-            }
+            Log.d(TAG, "Loaded ${savedRecipes.size} favorite recipes")
+        } catch (e: Exception) {
+            handleError("Error loading favorites", e)
+            // Keep existing favorites on error
         }
     }
 

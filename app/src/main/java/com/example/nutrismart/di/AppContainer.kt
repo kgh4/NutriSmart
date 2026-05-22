@@ -10,7 +10,8 @@ import com.example.nutrismart.domain.usecase.dailyideas.GenerateDailyMealIdeasUs
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateMoodBasedDailyIdeasUseCase
 import com.example.nutrismart.domain.usecase.dailyideas.GenerateAiDailyIdeasUseCase
 import com.example.nutrismart.domain.service.AiRecipeGenerator
-import com.example.nutrismart.data.ai.GeminiRecipeGenerator
+import com.example.nutrismart.data.ai.CerebrasRecipeGenerator
+import com.example.nutrismart.domain.usecase.leftovers.GenerateLeftoverAiRecipesUseCase
 import com.example.nutrismart.domain.usecase.profile.GetUserProfileUseCase
 import com.example.nutrismart.domain.usecase.profile.SaveUserProfileUseCase
 import com.example.nutrismart.domain.usecase.shoppinglist.GenerateShoppingListUseCase
@@ -38,6 +39,7 @@ interface AppContainer {
     val generateDailyMealIdeasUseCase: GenerateDailyMealIdeasUseCase
     val generateMoodBasedDailyIdeasUseCase: GenerateMoodBasedDailyIdeasUseCase
     val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase
+    val generateLeftoverAiRecipesUseCase: GenerateLeftoverAiRecipesUseCase
     val generateShoppingListUseCase: GenerateShoppingListUseCase
     val aiRecipeGenerator: AiRecipeGenerator
     val leftoverRecipeGenerator: LeftoverRecipeGenerator
@@ -102,10 +104,7 @@ class AppDataContainer(private val context: Context) : AppContainer {
     }
 
     override val aiRecipeGenerator: AiRecipeGenerator by lazy {
-        // In 2026, no API key is passed here.
-        // Vertex AI in Firebase uses the configuration from google-services.json
-        // and is secured via Firebase App Check.
-        GeminiRecipeGenerator()
+        CerebrasRecipeGenerator()
     }
 
     override val generateAiDailyIdeasUseCase: GenerateAiDailyIdeasUseCase by lazy {
@@ -113,6 +112,14 @@ class AppDataContainer(private val context: Context) : AppContainer {
             aiRecipeGenerator = aiRecipeGenerator,
             fallbackUseCase = generateMoodBasedDailyIdeasUseCase,
             recipeRepository = recipeRepository
+        )
+    }
+
+    override val generateLeftoverAiRecipesUseCase: GenerateLeftoverAiRecipesUseCase by lazy {
+        GenerateLeftoverAiRecipesUseCase(
+            aiRecipeGenerator = aiRecipeGenerator,
+            recipeRepository = recipeRepository,
+            aiEngine = com.example.nutrismart.domain.ai.AIEngine()
         )
     }
 

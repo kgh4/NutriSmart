@@ -100,6 +100,7 @@ fun NutriSmartNavGraph(
             val viewModel: LeftoverRecipesViewModel = viewModel(factory = ViewModelFactory)
             LeftoverRecipesScreen(
                 viewModel = viewModel,
+                appViewModel = appViewModel,
                 onRecipeClick = { id -> navController.navigate(Screen.RecipeDetails.createRoute(id)) },
                 onBackClick = { navController.popBackStack() }
             )

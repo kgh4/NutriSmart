@@ -59,6 +59,20 @@ fun EnhancedAuthScreen(
                 color = Color.Gray
             )
 
+            if (appViewModel.errorMessage.isNotBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = appViewModel.errorMessage,
+                        color = Color(0xFFB91C1C),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
 
             if (!isSignIn) {
